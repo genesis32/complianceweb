@@ -9,6 +9,7 @@ import (
 
 type DaoHandler interface {
 	Open() error
+	Close() error
 	TrySelect()
 }
 
@@ -38,4 +39,9 @@ func (d *Dao) TrySelect() {
 		log.Fatal(err)
 	}
 	log.Printf("row: %d", out)
+}
+
+func (d *Dao) Close() error {
+	err := d.Db.Close()
+	return err
 }

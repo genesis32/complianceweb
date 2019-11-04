@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/gob"
+	"log"
 
 	"github.com/genesis32/complianceweb/server"
 )
@@ -9,6 +10,11 @@ import (
 func main() {
 	gob.Register(map[string]interface{}{})
 	server := server.NewServer()
-	server.Startup()
+	err := server.Startup()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer server.Shutdown()
+
 	server.Serve()
 }

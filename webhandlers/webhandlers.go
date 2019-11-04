@@ -1,20 +1,41 @@
-package auth
+package webhandlers
 
 import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"net/http"
 
-	oidc "github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc"
+	"github.com/genesis32/complianceweb/auth"
+	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
 )
 
-func init() {
+func IndexHandler(store sessions.Store, c *gin.Context) {
+	c.HTML(http.StatusOK, "index.tmpl", gin.H{
+		"title": "Welcome",
+	})
 }
 
-func CallbackHandler(store sessions.Store, w http.ResponseWriter, r *http.Request) {
+func ProfileHandler(store sessions.Store, c *gin.Context) {
+	session, err := store.Get(c.Request, "auth-session")
+	if err != nil {
+		http.Error(c.Writer, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	c.HTML(http.StatusOK, "index.tmpl", gin.H{
+		"title": fmt.Sprintf("User: %+v", session.Values["profile"]),
+	})
+}
+
+func CallbackHandler(store sessions.Store, c *gin.Context) {
+	w := c.Writer
+	r := c.Request
+
 	session, err := store.Get(r, "auth-session")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -26,7 +47,7 @@ func CallbackHandler(store sessions.Store, w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	authenticator, err := NewAuthenticator()
+	authenticator, err := auth.NewAuthenticator()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -73,10 +94,12 @@ func CallbackHandler(store sessions.Store, w http.ResponseWriter, r *http.Reques
 	}
 
 	// Redirect to logged in page
-	http.Redirect(w, r, "/user", http.StatusSeeOther)
+	http.Redirect(w, r, "/webapp/profile", http.StatusSeeOther)
 }
 
-func LoginHandler(store sessions.Store, w http.ResponseWriter, r *http.Request) {
+func LoginHandler(store sessions.Store, c *gin.Context) {
+	w := c.Writer
+	r := c.Request
 	// Generate random state
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
@@ -98,7 +121,7 @@ func LoginHandler(store sessions.Store, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	authenticator, err := NewAuthenticator()
+	authenticator, err := auth.NewAuthenticator()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

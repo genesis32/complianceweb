@@ -31,7 +31,7 @@ func NewAuthenticator() (*Authenticator, error) {
 	conf := oauth2.Config{
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
-		RedirectURL:  "http://localhost:3000/callback",
+		RedirectURL:  "http://localhost:3000/webapp/callback",
 		Endpoint:     provider.Endpoint(),
 		Scopes:       []string{oidc.ScopeOpenID, "profile"},
 	}
