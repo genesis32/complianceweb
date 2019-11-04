@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"log"
+	"os"
 
 	"golang.org/x/oauth2"
 
@@ -24,9 +25,12 @@ func NewAuthenticator() (*Authenticator, error) {
 		return nil, err
 	}
 
+	clientId := os.Getenv("AUTH0_CLIENT_ID")
+	clientSecret := os.Getenv("AUTH0_CLIENT_SECRET")
+
 	conf := oauth2.Config{
-		ClientID:     "***REMOVED***",
-		ClientSecret: "YOUR_CLIENT_SECRET",
+		ClientID:     clientId,
+		ClientSecret: clientSecret,
 		RedirectURL:  "http://localhost:3000/callback",
 		Endpoint:     provider.Endpoint(),
 		Scopes:       []string{oidc.ScopeOpenID, "profile"},
