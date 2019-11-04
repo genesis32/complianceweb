@@ -5,38 +5,50 @@ import (
 	"net/http"
 
 	"github.com/genesis32/complianceweb/auth"
+	"github.com/genesis32/complianceweb/dao"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
 )
 
-func NewServer() *Server {
-	sessionStore := sessions.NewFilesystemStore("", []byte("something-very-secret"))
-	return &Server{SessionStore: sessionStore}
-}
-
 type Server struct {
+	Dao          dao.DaoHandler
 	SessionStore sessions.Store
 	router       *gin.Engine
 }
 
-func (s *Server) Serve() {
-	router := gin.Default()
-	router.Static("/static", "./static")
-	router.StaticFile("/favicon.ico", "./static/favicon.ico")
+func NewServer() *Server {
+	sessionStore := sessions.NewFilesystemStore("", []byte("something-very-secret"))
+	dao := dao.NewDaoHandler()
+	return &Server{SessionStore: sessionStore, Dao: dao}
+}
 
-	router.LoadHTMLGlob("templates/html/**")
-	router.GET("/", func(c *gin.Context) {
+func (s *Server) Startup() error {
+	dbOpenErr := s.Dao.Open()
+	if dbOpenErr != nil {
+		return dbOpenErr
+	}
+	s.Dao.TrySelect()
+	return nil
+}
+
+func (s *Server) Serve() {
+	s.router = gin.Default()
+	s.router.Static("/static", "./static")
+	s.router.StaticFile("/favicon.ico", "./static/favicon.ico")
+
+	s.router.LoadHTMLGlob("templates/html/**")
+	s.router.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
 			"title": "Welcome",
 		})
 	})
-	router.GET("/login", func(c *gin.Context) {
+	s.router.GET("/login", func(c *gin.Context) {
 		auth.LoginHandler(s.SessionStore, c.Writer, c.Request)
 	})
-	router.GET("/callback", func(c *gin.Context) {
+	s.router.GET("/callback", func(c *gin.Context) {
 		auth.CallbackHandler(s.SessionStore, c.Writer, c.Request)
 	})
-	router.GET("/user", func(c *gin.Context) {
+	s.router.GET("/user", func(c *gin.Context) {
 
 		session, err := s.SessionStore.Get(c.Request, "auth-session")
 		if err != nil {
@@ -49,5 +61,5 @@ func (s *Server) Serve() {
 		})
 	})
 
-	router.Run()
+	s.router.Run()
 }

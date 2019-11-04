@@ -8,7 +8,7 @@ import (
 
 func main() {
 	gob.Register(map[string]interface{}{})
-
 	server := server.NewServer()
+	server.Startup()
 	server.Serve()
 }
