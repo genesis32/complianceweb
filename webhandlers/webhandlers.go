@@ -10,29 +10,40 @@ import (
 
 	"github.com/coreos/go-oidc"
 	"github.com/genesis32/complianceweb/auth"
+	"github.com/genesis32/complianceweb/dao"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
 )
 
-func IndexHandler(store sessions.Store, c *gin.Context) {
+func IndexHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
 		"title": "Welcome",
 	})
 }
 
-func ProfileHandler(store sessions.Store, c *gin.Context) {
+func ProfileHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 	session, err := store.Get(c.Request, "auth-session")
 	if err != nil {
 		http.Error(c.Writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	v, ok := session.Values["profile"].(map[string]interface{})
+	if !ok {
+		c.HTML(http.StatusInternalServerError, "index.tmpl", gin.H{
+			"title": "error",
+		})
+		return
+	}
+
+	dao.CreateOrUpdateUser(fmt.Sprintf("%v", v["name"]), fmt.Sprintf("%v", v["sub"]))
+
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
 		"title": fmt.Sprintf("User: %+v", session.Values["profile"]),
 	})
 }
 
-func CallbackHandler(store sessions.Store, c *gin.Context) {
+func CallbackHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 	w := c.Writer
 	r := c.Request
 
@@ -97,7 +108,7 @@ func CallbackHandler(store sessions.Store, c *gin.Context) {
 	http.Redirect(w, r, "/webapp/profile", http.StatusSeeOther)
 }
 
-func LoginHandler(store sessions.Store, c *gin.Context) {
+func LoginHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 	w := c.Writer
 	r := c.Request
 	// Generate random state
