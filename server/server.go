@@ -79,7 +79,12 @@ func (s *Server) Serve() {
 		webapp.GET("/profile", s.registerWebApp(webhandlers.ProfileHandler))
 
 		webapp.GET("/bootstrap", s.registerWebApp(webhandlers.BootstrapHandler))
-		webapp.POST("/bootstrap", s.registerWebApp(webhandlers.BootstrapHandler))
+
+		webapp.GET("/organization", s.registerWebApp(webhandlers.OrganizationCreateHandler))
+		webapp.POST("/organization", s.registerWebApp(webhandlers.OrganizationCreateHandler))
+
+		webapp.GET("/organization/:orgid", s.registerWebApp(webhandlers.OrganizationModifyHandler))
+		webapp.POST("/organization/:orgid", s.registerWebApp(webhandlers.OrganizationModifyHandler))
 	}
 
 	s.router.GET("/", func(c *gin.Context) {

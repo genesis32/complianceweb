@@ -110,6 +110,20 @@ func CallbackHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 }
 
 func BootstrapHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	c.Redirect(302, fmt.Sprintf("/webapp/organization"))
+}
+
+func OrganizationModifyHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	orgId := c.Param("orgid")
+	if c.Request.Method == "GET" {
+		c.HTML(http.StatusOK, "modifyOrg.tmpl", gin.H{
+			"title":          fmt.Sprintf("Modify Org %s", orgId),
+			csrf.TemplateTag: csrf.TemplateField(c.Request),
+		})
+	}
+}
+
+func OrganizationCreateHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 	if c.Request.Method == "GET" {
 		c.HTML(http.StatusOK, "createOrg.tmpl", gin.H{
 			"title":          "Create Org",
@@ -132,10 +146,7 @@ func BootstrapHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Co
 			c.String(http.StatusBadRequest, fmt.Sprintf("upload creating db org: %s", err.Error()))
 			return
 		}
-
-		c.HTML(http.StatusOK, "createOrg.tmpl", gin.H{
-			"title": "createOrg - POST",
-		})
+		c.Redirect(302, fmt.Sprintf("/webapp/organization/%d", newOrg.ID))
 	}
 }
 

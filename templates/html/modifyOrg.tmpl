@@ -1,0 +1,20 @@
+<html>
+
+<head>
+    <title>Modify Org</title>
+</head>
+
+<body>
+    <h1> {{ .title }} </h1>
+    <div>
+            <label for="account1">Account</label>
+            <input type="text" name="account1" id="account1">
+            <input type="button" value="Add User"/>
+            {{ .csrfField }}
+    </div>
+</body>
+
+</html>
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script src="/static/modifyOrg.js"></script>
