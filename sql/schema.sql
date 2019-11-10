@@ -3,6 +3,10 @@ CREATE TABLE
 (
     id BIGINT PRIMARY KEY,
     display_name TEXT,
+    master_account_type TEXT,
+    master_account_credential TEXT,
+    created_timestamp TIMESTAMP,
+    current_state INT
     path ltree
 );
 
@@ -22,6 +26,7 @@ CREATE TABLE
     id BIGINT PRIMARY KEY,
     display_name TEXT,
     credential_value TEXT UNIQUE,
-    last_login_timestamp TIMESTAMP,
-    organization_user_json jsonb
+    organization_user_json jsonb,
+
+    last_login_timestamp TIMESTAMP
 )

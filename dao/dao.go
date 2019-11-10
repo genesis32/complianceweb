@@ -12,7 +12,9 @@ type DaoHandler interface {
 	Open() error
 	Close() error
 	TrySelect()
-	CreateOrUpdateUser(name, subject string)
+	GetNextUniqueId() int64
+	CreateOrganization(*Organization) error
+	CreateOrUpdateUser(name, subject string) error
 }
 
 type Dao struct {
@@ -32,7 +34,23 @@ func (d *Dao) Open() error {
 	return nil
 }
 
-func (d *Dao) CreateOrUpdateUser(name, subject string) {
+func (d *Dao) GetNextUniqueId() int64 {
+	return rand.Int63()
+}
+
+func (d *Dao) CreateOrganization(org *Organization) error {
+	sqlStatement := `
+	INSERT INTO organization (id, display_name, master_account_type, master_account_credential) 
+	VALUES ($1, $2, $3, $4)
+	`
+	_, err := d.Db.Exec(sqlStatement, org.ID, org.DisplayName, GcpAccount, org.masterAccountCredential)
+	if err != nil {
+		panic(err)
+	}
+	return nil
+}
+
+func (d *Dao) CreateOrUpdateUser(name, subject string) error {
 	sqlStatement := `
 	INSERT INTO ouser (id, display_name, credential_value, last_login_timestamp) 
 	VALUES ($1, $2, $3, NOW())
@@ -42,6 +60,7 @@ func (d *Dao) CreateOrUpdateUser(name, subject string) {
 	if err != nil {
 		panic(err)
 	}
+	return nil
 }
 
 func (d *Dao) TrySelect() {

@@ -110,10 +110,10 @@ func CallbackHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 	http.Redirect(w, r, "/webapp/profile", http.StatusSeeOther)
 }
 
-func BootstrapHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
+func BootstrapHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 	if c.Request.Method == "GET" {
-		c.HTML(http.StatusOK, "bootstrap.tmpl", gin.H{
-			"title":          "Bootstrap",
+		c.HTML(http.StatusOK, "createOrg.tmpl", gin.H{
+			"title":          "Create Org",
 			csrf.TemplateTag: csrf.TemplateField(c.Request),
 		})
 	} else if c.Request.Method == "POST" {
@@ -132,8 +132,20 @@ func BootstrapHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) 
 			return
 		}
 
-		c.HTML(http.StatusOK, "bootstrap.tmpl", gin.H{
-			"title": "Bootstrap - POST",
+		var newOrg dao.Organization
+		if err := c.ShouldBind(&newOrg); err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("upload binding: %s", err.Error()))
+			return
+		}
+		newOrg.ID = daoHandler.GetNextUniqueId()
+
+		if err := daoHandler.CreateOrganization(newOrg); err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("upload creating db org: %s", err.Error()))
+			return
+		}
+
+		c.HTML(http.StatusOK, "createOrg.tmpl", gin.H{
+			"title": "createOrg - POST",
 		})
 	}
 }
