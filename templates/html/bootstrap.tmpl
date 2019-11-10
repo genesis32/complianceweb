@@ -1,0 +1,27 @@
+<html>
+
+<head>
+    <title>Bootstrap</title>
+</head>
+
+<body>
+    <h1> {{ .title }} </h1>
+    <div>
+        <form action="" method="POST" enctype="multipart/form-data">
+
+            <label for="account1">Account 1</label>
+            <input type="account1" name="account1" id="account1">
+
+            <label for="account2">Account 2</label>
+            <input type="account2" name="account2" id="account2">
+
+            <label for="master_account">Master Account .json</label>
+            <input type="file" name="master_account_json" id="master_account">
+            {{ .csrfField }}
+            <input type="submit"/>
+        </form>
+    </div>
+</body>
+
+</html>
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>

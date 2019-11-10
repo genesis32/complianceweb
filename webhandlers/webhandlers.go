@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 
 	"github.com/coreos/go-oidc"
 	"github.com/genesis32/complianceweb/auth"
 	"github.com/genesis32/complianceweb/dao"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/csrf"
 	"github.com/gorilla/sessions"
 )
 
@@ -106,6 +108,34 @@ func CallbackHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 
 	// Redirect to logged in page
 	http.Redirect(w, r, "/webapp/profile", http.StatusSeeOther)
+}
+
+func BootstrapHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
+	if c.Request.Method == "GET" {
+		c.HTML(http.StatusOK, "bootstrap.tmpl", gin.H{
+			"title":          "Bootstrap",
+			csrf.TemplateTag: csrf.TemplateField(c.Request),
+		})
+	} else if c.Request.Method == "POST" {
+
+		// Source
+		file, err := c.FormFile("master_account_json")
+		if err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("get form err: %s", err.Error()))
+			return
+		}
+
+		filename := filepath.Base(file.Filename)
+		log.Printf("file uploaded %s", filename)
+		if err := c.SaveUploadedFile(file, filename); err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("upload file err: %s", err.Error()))
+			return
+		}
+
+		c.HTML(http.StatusOK, "bootstrap.tmpl", gin.H{
+			"title": "Bootstrap - POST",
+		})
+	}
 }
 
 func LoginHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
