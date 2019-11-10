@@ -1,7 +1,7 @@
 package dao
 
 const (
-	GcpAccount = "GCP_ACCOUNT"
+	GcpAccount = "GCP"
 )
 
 type User struct {
@@ -13,7 +13,7 @@ type User struct {
 
 type Organization struct {
 	ID                      int64
-	DisplayName             string `form:"orgname" binding:"required"`
+	DisplayName             string
 	MasterAccountType       string
 	masterAccountCredential string
 }

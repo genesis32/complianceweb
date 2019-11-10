@@ -6,7 +6,7 @@ CREATE TABLE
     master_account_type TEXT,
     master_account_credential TEXT,
     created_timestamp TIMESTAMP,
-    current_state INT
+    current_state INT,
     path ltree
 );
 

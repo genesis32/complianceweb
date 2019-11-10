@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"path/filepath"
 
 	"github.com/coreos/go-oidc"
 	"github.com/genesis32/complianceweb/auth"
@@ -118,28 +117,18 @@ func BootstrapHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Co
 		})
 	} else if c.Request.Method == "POST" {
 
-		// Source
-		file, err := c.FormFile("master_account_json")
-		if err != nil {
-			c.String(http.StatusBadRequest, fmt.Sprintf("get form err: %s", err.Error()))
-			return
-		}
-
-		filename := filepath.Base(file.Filename)
-		log.Printf("file uploaded %s", filename)
-		if err := c.SaveUploadedFile(file, filename); err != nil {
-			c.String(http.StatusBadRequest, fmt.Sprintf("upload file err: %s", err.Error()))
-			return
-		}
-
-		var newOrg dao.Organization
-		if err := c.ShouldBind(&newOrg); err != nil {
+		var orgForm OrganizationForm
+		if err := c.ShouldBind(&orgForm); err != nil {
 			c.String(http.StatusBadRequest, fmt.Sprintf("upload binding: %s", err.Error()))
 			return
 		}
+		var newOrg dao.Organization
 		newOrg.ID = daoHandler.GetNextUniqueId()
+		newOrg.DisplayName = orgForm.Name
+		newOrg.MasterAccountType = "GCP"
+		newOrg.EncodeMasterAccountCredential(orgForm.RetrieveContents())
 
-		if err := daoHandler.CreateOrganization(newOrg); err != nil {
+		if err := daoHandler.CreateOrganization(&newOrg); err != nil {
 			c.String(http.StatusBadRequest, fmt.Sprintf("upload creating db org: %s", err.Error()))
 			return
 		}
