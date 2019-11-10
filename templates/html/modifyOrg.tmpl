@@ -3,10 +3,18 @@
 <head>
     <title>Modify Org</title>
 </head>
-
 <body>
     <h1> {{ .title }} </h1>
     <div>
+        <h2>Users</h2>
+        <ul id="example-1">
+            <li v-for="item in items">
+                ${ item.message }
+            </li>
+        </ul>
+    </div>
+    <div>
+        <h2>Add User</h2>
             <label for="account1">Account</label>
             <input type="text" name="account1" id="account1">
             <input type="button" value="Add User"/>
