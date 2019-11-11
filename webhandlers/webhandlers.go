@@ -114,12 +114,24 @@ func BootstrapHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Co
 }
 
 func OrganizationModifyHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	c.SetCookie("X-CSRF-Token", csrf.Token(c.Request), 1000*60*5, "", "", false, false)
 	orgId := c.Param("orgid")
 	if c.Request.Method == "GET" {
 		c.HTML(http.StatusOK, "modifyOrg.tmpl", gin.H{
-			"title":          fmt.Sprintf("Modify Org %s", orgId),
-			csrf.TemplateTag: csrf.TemplateField(c.Request),
+			"title": fmt.Sprintf("Modify Org %s", orgId),
 		})
+	}
+}
+
+func UsersJsonHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	if c.Request.Method == "GET" {
+		r := make(map[string]string)
+		r["foo"] = "GET"
+		c.JSON(200, r)
+	} else if c.Request.Method == "POST" {
+		r := make(map[string]string)
+		r["foo"] = "POST"
+		c.JSON(200, r)
 	}
 }
 

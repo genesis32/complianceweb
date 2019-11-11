@@ -68,7 +68,7 @@ func (s *Server) Serve() {
 
 	s.router.LoadHTMLGlob("templates/html/**")
 
-	csrfMiddleware := csrf.Protect([]byte("32-byte-long-auth-key"), csrf.Secure(false))
+	csrfMiddleware := csrf.Protect([]byte("32-byte-long-auth-key"), csrf.Secure(false), csrf.HttpOnly(false), csrf.Path("/"))
 
 	webapp := s.router.Group("webapp")
 	webapp.Use(adapter.Wrap(csrfMiddleware))
@@ -85,6 +85,9 @@ func (s *Server) Serve() {
 
 		webapp.GET("/organization/:orgid", s.registerWebApp(webhandlers.OrganizationModifyHandler))
 		webapp.POST("/organization/:orgid", s.registerWebApp(webhandlers.OrganizationModifyHandler))
+
+		webapp.GET("/userJSON", s.registerWebApp(webhandlers.UsersJsonHandler))
+		webapp.POST("/userJSON", s.registerWebApp(webhandlers.UsersJsonHandler))
 	}
 
 	s.router.GET("/", func(c *gin.Context) {
