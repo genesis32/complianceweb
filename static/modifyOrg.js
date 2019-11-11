@@ -8,6 +8,7 @@ const transport = axios.create({
 });
 
 Vue.component('useradd-widget', {
+    props: ['orgid'],
     data: function () {
         return {
             accountName: "John Doe"
@@ -15,16 +16,18 @@ Vue.component('useradd-widget', {
     },
     methods: {
         addUser: function (event) {
+            var that=this;
             transport.post('/webapp/userJSON', {
-                name: 'Fred Flintstone'
+                organizationId: this.orgid,
+                name: this.accountName
               })
               .then(function (response) {
+                alert('Added ' + that.accountName);
                 console.log(response);
               })
               .catch(function (error) {
                 console.log(error);
               });
-            alert('Add ' + this.accountName);
         }
     },
     template: `

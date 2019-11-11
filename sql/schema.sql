@@ -21,12 +21,15 @@ sub:google-oauth2|111861164484074538139 updated_at:2019-11-06T05:49:43.694Z]
 */
 
 CREATE TABLE
-    ouser
+    organization_user
 (
     id BIGINT PRIMARY KEY,
     display_name TEXT,
-    credential_value TEXT UNIQUE,
-    organization_user_json jsonb,
+    idp_type TEXT,
+    idp_credential_value TEXT UNIQUE,
+    organizations BIGINT ARRAY,
+    invite_code TEXT,
+    current_state INT,
 
     last_login_timestamp TIMESTAMP
 )

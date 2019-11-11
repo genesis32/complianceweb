@@ -119,6 +119,7 @@ func OrganizationModifyHandler(store sessions.Store, daoHandler dao.DaoHandler, 
 	if c.Request.Method == "GET" {
 		c.HTML(http.StatusOK, "modifyOrg.tmpl", gin.H{
 			"title": fmt.Sprintf("Modify Org %s", orgId),
+			"orgId": orgId,
 		})
 	}
 }
