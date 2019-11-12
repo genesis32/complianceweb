@@ -18,6 +18,11 @@ type Organization struct {
 	masterAccountCredential string
 }
 
+type OrganizationUser struct {
+	ID          int64
+	DisplayName string
+}
+
 func (o *Organization) EncodeMasterAccountCredential(cred string) {
 	o.masterAccountCredential = cred
 }

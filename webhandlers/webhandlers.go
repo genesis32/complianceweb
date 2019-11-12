@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/coreos/go-oidc"
 	"github.com/genesis32/complianceweb/auth"
@@ -28,16 +29,6 @@ func ProfileHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 		http.Error(c.Writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	v, ok := session.Values["profile"].(map[string]interface{})
-	if !ok {
-		c.HTML(http.StatusInternalServerError, "index.tmpl", gin.H{
-			"title": "error",
-		})
-		return
-	}
-
-	dao.CreateOrUpdateUser(fmt.Sprintf("%v", v["name"]), fmt.Sprintf("%v", v["sub"]))
 
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
 		"title": fmt.Sprintf("User: %+v", session.Values["profile"]),
@@ -105,6 +96,11 @@ func CallbackHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 		return
 	}
 
+	stateWithInvite := strings.Split(r.URL.Query().Get("state"), "|")
+	if len(stateWithInvite) > 1 {
+		dao.InitUserFromInviteCode(stateWithInvite[1], fmt.Sprintf("%v", profile["sub"]))
+	}
+
 	// Redirect to logged in page
 	http.Redirect(w, r, "/webapp/profile", http.StatusSeeOther)
 }
@@ -124,14 +120,40 @@ func OrganizationModifyHandler(store sessions.Store, daoHandler dao.DaoHandler, 
 	}
 }
 
+func InviteHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	if c.Request.Method == "GET" {
+		inviteCode := c.Param("inviteCode")
+		theUser, err := daoHandler.LoadUserFromInviteCode(inviteCode)
+		if err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("error getting invite code: %s", err.Error()))
+			return
+		}
+		if theUser == nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("invite code not valid"))
+			return
+		}
+		c.Redirect(302, fmt.Sprintf("/webapp/login?inviteCode=%s", inviteCode))
+	}
+}
+
 func UsersJsonHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 	if c.Request.Method == "GET" {
-		r := make(map[string]string)
+		r := make(map[string]interface{})
 		r["foo"] = "GET"
 		c.JSON(200, r)
 	} else if c.Request.Method == "POST" {
+
+		var frm AddUserToOrganizationForm
+
+		if err := c.ShouldBind(&frm); err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("upload format: %s", err.Error()))
+			return
+		}
+
+		inviteCode, _ := daoHandler.CreateInviteForUser(frm.OrganizationId, frm.Name)
+
 		r := make(map[string]string)
-		r["foo"] = "POST"
+		r["inviteCode"] = inviteCode
 		c.JSON(200, r)
 	}
 }
@@ -180,6 +202,13 @@ func LoginHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// TODO: Hack to get an invite code into the callback
+	inviteCode := c.Query("inviteCode")
+	if inviteCode != "" {
+		state += fmt.Sprintf("|%s", inviteCode)
+	}
+
 	session.Values["state"] = state
 	err = session.Save(r, w)
 	if err != nil {

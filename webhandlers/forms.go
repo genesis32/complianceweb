@@ -11,6 +11,11 @@ type OrganizationForm struct {
 	AccountCredential *multipart.FileHeader `form:"master_account_json"`
 }
 
+type AddUserToOrganizationForm struct {
+	Name           string `json:"name"`
+	OrganizationId int64  `json:"organizationId"`
+}
+
 func (o *OrganizationForm) RetrieveContents() string {
 	if o.AccountCredential != nil {
 		buf := bytes.NewBuffer(nil)

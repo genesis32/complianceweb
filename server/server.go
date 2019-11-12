@@ -86,6 +86,8 @@ func (s *Server) Serve() {
 		webapp.GET("/organization/:orgid", s.registerWebApp(webhandlers.OrganizationModifyHandler))
 		webapp.POST("/organization/:orgid", s.registerWebApp(webhandlers.OrganizationModifyHandler))
 
+		webapp.GET("/invite/:inviteCode", s.registerWebApp(webhandlers.InviteHandler))
+
 		webapp.GET("/userJSON", s.registerWebApp(webhandlers.UsersJsonHandler))
 		webapp.POST("/userJSON", s.registerWebApp(webhandlers.UsersJsonHandler))
 	}

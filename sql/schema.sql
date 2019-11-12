@@ -31,5 +31,6 @@ CREATE TABLE
     invite_code TEXT,
     current_state INT,
 
-    last_login_timestamp TIMESTAMP
+    last_login_timestamp TIMESTAMP,
+    created_timestamp TIMESTAMP
 )

@@ -2,6 +2,8 @@ package dao
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 
@@ -14,7 +16,9 @@ type DaoHandler interface {
 	TrySelect()
 	GetNextUniqueId() int64
 	CreateOrganization(*Organization) error
-	CreateOrUpdateUser(name, subject string) error
+	CreateInviteForUser(organizationId int64, name string) (string, error)
+	LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, error)
+	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (*OrganizationUser, error)
 }
 
 type Dao struct {
@@ -38,6 +42,37 @@ func (d *Dao) GetNextUniqueId() int64 {
 	return rand.Int63()
 }
 
+func (d *Dao) LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, error) {
+	sqlStatement := `SELECT id, display_name FROM organization_user WHERE invite_code=$1 AND current_state=0`
+	var orgUser OrganizationUser
+
+	row := d.Db.QueryRow(sqlStatement, inviteCode)
+	err := row.Scan(&orgUser.ID, &orgUser.DisplayName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error loading user from invite code %v: %w", inviteCode, err)
+	}
+
+	return &orgUser, nil
+}
+
+func (d *Dao) CreateInviteForUser(organizationId int64, name string) (string, error) {
+	inviteCode := fmt.Sprintf("%d", d.GetNextUniqueId())
+	orgUserID := fmt.Sprintf("%d", d.GetNextUniqueId())
+
+	sqlStatement := `
+		INSERT INTO organization_user (id, display_name, organizations, invite_code, created_timestamp, current_state)
+		VALUES ($1, $2, $3, $4, $5, 0)
+	`
+	_, err := d.Db.Exec(sqlStatement, orgUserID, name, fmt.Sprintf("{%d}", organizationId), inviteCode, "NOW()")
+	if err != nil {
+		panic(err)
+	}
+	return inviteCode, nil
+}
+
 func (d *Dao) CreateOrganization(org *Organization) error {
 	sqlStatement := `
 	INSERT INTO organization (id, display_name, master_account_type, master_account_credential) 
@@ -50,17 +85,23 @@ func (d *Dao) CreateOrganization(org *Organization) error {
 	return nil
 }
 
-func (d *Dao) CreateOrUpdateUser(name, subject string) error {
+func (d *Dao) InitUserFromInviteCode(inviteCode, idpAuthCredential string) (*OrganizationUser, error) {
 	sqlStatement := `
-	INSERT INTO ouser (id, display_name, credential_value, last_login_timestamp) 
-	VALUES ($1, $2, $3, NOW())
-	ON CONFLICT (credential_value) DO UPDATE SET last_login_timestamp = NOW()
+	UPDATE 
+		organization_user 
+    SET
+		idp_type = 'AUTH0',
+	    idp_credential_value = $1,
+	    current_state = 1, 
+        last_login_timestamp=NOW()
+	WHERE
+		invite_code = $2 AND current_state=0
 	`
-	_, err := d.Db.Exec(sqlStatement, rand.Int63(), name, subject)
+	_, err := d.Db.Exec(sqlStatement, idpAuthCredential, inviteCode)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("error initializing user from invite code %v: %w", inviteCode, err)
 	}
-	return nil
+	return nil, nil
 }
 
 func (d *Dao) TrySelect() {
