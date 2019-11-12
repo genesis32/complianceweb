@@ -1,6 +1,7 @@
 package webhandlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/genesis32/complianceweb/dao"
@@ -12,6 +13,6 @@ func UserIndexHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Co
 	session, _ := store.Get(c.Request, "auth-session")
 	t := session.Values["organization_user"].(*dao.OrganizationUser)
 	c.HTML(http.StatusOK, "userIndex.tmpl", gin.H{
-		"userId": t.ID,
+		"dataz": fmt.Sprintf("OrgUser:%+v", t),
 	})
 }

@@ -49,7 +49,7 @@ func (d *Dao) LogUserIn(idpAuthCredential string) (*OrganizationUser, error) {
 	var orgUser OrganizationUser
 
 	row := d.Db.QueryRow(sqlStatement, idpAuthCredential)
-	err := row.Scan(&orgUser.ID, &orgUser.DisplayName, pq.Array(orgUser.Organizations))
+	err := row.Scan(&orgUser.ID, &orgUser.DisplayName, pq.Array(&orgUser.Organizations))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
