@@ -17,21 +17,24 @@ import (
 	"github.com/gorilla/sessions"
 )
 
+// TODO: Move everything in this file to the admin handler route.
+
 func IndexHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
 		"title": "Welcome",
 	})
 }
 
-func ProfileHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
+func ProfileHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 	session, err := store.Get(c.Request, "auth-session")
 	if err != nil {
 		http.Error(c.Writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	c.HTML(http.StatusOK, "index.tmpl", gin.H{
-		"title": fmt.Sprintf("User: %+v", session.Values["profile"]),
+	t := session.Values["organization_user"].(*dao.OrganizationUser)
+	c.HTML(http.StatusOK, "profile.tmpl", gin.H{
+		"title": fmt.Sprintf("User: %+v userid:%d", session.Values["profile"], t.ID),
 	})
 }
 
@@ -87,22 +90,42 @@ func CallbackHandler(store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 		return
 	}
 
+	stateWithInvite := strings.Split(r.URL.Query().Get("state"), "|")
+	if len(stateWithInvite) > 1 {
+		initialized, err := dao.InitUserFromInviteCode(stateWithInvite[1], fmt.Sprintf("%v", profile["sub"]))
+		if !initialized {
+			http.Error(w, "Failed to initialize user", http.StatusOK)
+			return
+		}
+		if err != nil {
+			http.Error(w, "Failed to initialize user: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	organizationUser, err := dao.LogUserIn(profile["sub"].(string))
+	if organizationUser == nil && err == nil {
+		http.Redirect(w, r, "/webapp", http.StatusSeeOther)
+		return
+	}
+
+	if err != nil {
+		http.Error(w, "Failed to initialize user: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	session.Values["id_token"] = rawIDToken
 	session.Values["access_token"] = token.AccessToken
 	session.Values["profile"] = profile
+	session.Values["organization_user"] = organizationUser
 	err = session.Save(r, w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	stateWithInvite := strings.Split(r.URL.Query().Get("state"), "|")
-	if len(stateWithInvite) > 1 {
-		dao.InitUserFromInviteCode(stateWithInvite[1], fmt.Sprintf("%v", profile["sub"]))
-	}
-
 	// Redirect to logged in page
-	http.Redirect(w, r, "/webapp/profile", http.StatusSeeOther)
+	http.Redirect(w, r, "user", http.StatusSeeOther)
 }
 
 func BootstrapHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {

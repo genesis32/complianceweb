@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -18,7 +19,8 @@ type DaoHandler interface {
 	CreateOrganization(*Organization) error
 	CreateInviteForUser(organizationId int64, name string) (string, error)
 	LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, error)
-	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (*OrganizationUser, error)
+	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error)
+	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
 }
 
 type Dao struct {
@@ -40,6 +42,22 @@ func (d *Dao) Open() error {
 
 func (d *Dao) GetNextUniqueId() int64 {
 	return rand.Int63()
+}
+
+func (d *Dao) LogUserIn(idpAuthCredential string) (*OrganizationUser, error) {
+	sqlStatement := `SELECT id, display_name, organizations FROM organization_user WHERE idp_type = 'AUTH0' AND idp_credential_value=$1 AND current_state=1`
+	var orgUser OrganizationUser
+
+	row := d.Db.QueryRow(sqlStatement, idpAuthCredential)
+	err := row.Scan(&orgUser.ID, &orgUser.DisplayName, pq.Array(orgUser.Organizations))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error loading user from credential: %w", err)
+	}
+
+	return &orgUser, nil
 }
 
 func (d *Dao) LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, error) {
@@ -85,23 +103,25 @@ func (d *Dao) CreateOrganization(org *Organization) error {
 	return nil
 }
 
-func (d *Dao) InitUserFromInviteCode(inviteCode, idpAuthCredential string) (*OrganizationUser, error) {
+func (d *Dao) InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error) {
 	sqlStatement := `
 	UPDATE 
 		organization_user 
     SET
 		idp_type = 'AUTH0',
 	    idp_credential_value = $1,
-	    current_state = 1, 
-        last_login_timestamp=NOW()
+	    current_state = 1 
 	WHERE
 		invite_code = $2 AND current_state=0
 	`
 	_, err := d.Db.Exec(sqlStatement, idpAuthCredential, inviteCode)
-	if err != nil {
-		return nil, fmt.Errorf("error initializing user from invite code %v: %w", inviteCode, err)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
 	}
-	return nil, nil
+	if err != nil {
+		return false, fmt.Errorf("error loading user from invite code %v: %w", inviteCode, err)
+	}
+	return true, nil
 }
 
 func (d *Dao) TrySelect() {

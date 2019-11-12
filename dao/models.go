@@ -19,8 +19,9 @@ type Organization struct {
 }
 
 type OrganizationUser struct {
-	ID          int64
-	DisplayName string
+	ID            int64
+	DisplayName   string
+	Organizations []int64
 }
 
 func (o *Organization) EncodeMasterAccountCredential(cred string) {

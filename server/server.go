@@ -1,6 +1,9 @@
 package server
 
 import (
+	"encoding/gob"
+	"net/http"
+
 	"github.com/genesis32/complianceweb/dao"
 	"github.com/genesis32/complianceweb/webhandlers"
 	"github.com/gin-gonic/gin"
@@ -25,6 +28,9 @@ func NewServer() *Server {
 
 // Startup the server
 func (s *Server) Startup() error {
+	gob.Register(map[string]interface{}{})
+	gob.Register(&dao.OrganizationUser{})
+
 	dbOpenErr := s.Dao.Open()
 	if dbOpenErr != nil {
 		return dbOpenErr
@@ -59,6 +65,22 @@ func Logger() gin.HandlerFunc {
 	}
 }
 
+func authenticationRequired(store sessions.Store) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		session, err := store.Get(c.Request, "auth-session")
+		if err != nil {
+			c.String(http.StatusUnauthorized, "Not authorized")
+			c.Abort()
+		}
+		_, ok := session.Values["organization_user"].(*dao.OrganizationUser)
+		if !ok {
+			c.String(http.StatusUnauthorized, "Not authorized")
+			c.Abort()
+		}
+		c.Next()
+	}
+}
+
 // Serve the traffic
 func (s *Server) Serve() {
 	s.router = gin.Default()
@@ -66,7 +88,7 @@ func (s *Server) Serve() {
 	s.router.Static("/static", "./static")
 	s.router.StaticFile("/favicon.ico", "./static/favicon.ico")
 
-	s.router.LoadHTMLGlob("templates/html/**")
+	s.router.LoadHTMLGlob("templates/html/*.tmpl")
 
 	csrfMiddleware := csrf.Protect([]byte("32-byte-long-auth-key"), csrf.Secure(false), csrf.HttpOnly(false), csrf.Path("/"))
 
@@ -90,6 +112,11 @@ func (s *Server) Serve() {
 
 		webapp.GET("/userJSON", s.registerWebApp(webhandlers.UsersJsonHandler))
 		webapp.POST("/userJSON", s.registerWebApp(webhandlers.UsersJsonHandler))
+	}
+	authenticatedRoutes := webapp.Group("/user")
+	authenticatedRoutes.Use(authenticationRequired(s.SessionStore))
+	{
+		authenticatedRoutes.GET("/", s.registerWebApp(webhandlers.UserIndexHandler))
 	}
 
 	s.router.GET("/", func(c *gin.Context) {
