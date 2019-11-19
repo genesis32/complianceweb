@@ -26,7 +26,14 @@ func NewAuthenticator() (*Authenticator, error) {
 	}
 
 	clientId := os.Getenv("AUTH0_CLIENT_ID")
+	if len(clientId) == 0 {
+		panic("AUTH0_CLIENT_ID undefined")
+	}
+
 	clientSecret := os.Getenv("AUTH0_CLIENT_SECRET")
+	if len(clientSecret) == 0 {
+		panic("AUTH0_CLIENT_SECRET undefined")
+	}
 
 	conf := oauth2.Config{
 		ClientID:     clientId,

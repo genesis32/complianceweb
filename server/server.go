@@ -119,6 +119,13 @@ func (s *Server) Serve() {
 		authenticatedRoutes.GET("/", s.registerWebApp(webhandlers.UserIndexHandler))
 	}
 
+	apiRoutes := s.router.Group("/api")
+	apiRoutes.Use(adapter.Wrap(csrfMiddleware))
+	apiRoutes.Use(authenticationRequired(s.SessionStore))
+	{
+		apiRoutes.GET("/organizations", s.registerWebApp(webhandlers.UserOrganizationApiHandler))
+	}
+
 	s.router.GET("/", func(c *gin.Context) {
 		c.Redirect(301, "/webapp/")
 	})

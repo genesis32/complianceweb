@@ -6,9 +6,12 @@
 
 <body>
     User - Main {{ .dataz }}
+    <div id="org-item-view">
+        <org-item :id="tree.id" :name="tree.name" :children="tree.children">
+    </div>
 </body>
 
 </html>
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-<script src="/static/modifyOrg.js"></script>
+<script src="/static/userIndex.js"></script>

@@ -7,8 +7,9 @@ import (
 )
 
 type OrganizationForm struct {
-	Name              string                `form:"orgname" binding:"required"`
-	AccountCredential *multipart.FileHeader `form:"master_account_json"`
+	ParentOrganizationID int64                 `form:"parent_organization_id"`
+	Name                 string                `form:"orgname" binding:"required"`
+	AccountCredential    *multipart.FileHeader `form:"master_account_json"`
 }
 
 type AddUserToOrganizationForm struct {

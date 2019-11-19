@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
@@ -33,7 +34,12 @@ func NewDaoHandler() DaoHandler {
 
 func (d *Dao) Open() error {
 	var err error
-	d.Db, err = sql.Open("postgres", "user=dmassey dbname=dmassey sslmode=disable")
+
+	dbConnectionString := os.Getenv("PGSQL_CONNECTION_STRING")
+	if len(dbConnectionString) == 0 {
+		panic("PGSQL_CONNECTION_STRING undefined")
+	}
+	d.Db, err = sql.Open("postgres", dbConnectionString)
 	if err != nil {
 		log.Fatal(err)
 	}
