@@ -1,1 +1,4 @@
 Organization Tree View
+
+Array Update Syntax:
+UPDATE organization_user SET organizations=ARRAY[2020063389837729405] WHERE 0=0;

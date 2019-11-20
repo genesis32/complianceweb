@@ -16,6 +16,7 @@ type Organization struct {
 	DisplayName             string
 	MasterAccountType       string
 	masterAccountCredential string
+	Path                    string
 }
 
 type OrganizationUser struct {

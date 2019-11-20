@@ -21,16 +21,21 @@ sub:google-oauth2|111861164484074538139 updated_at:2019-11-06T05:49:43.694Z]
 */
 
 CREATE TABLE
+    organization_organization_user_xref
+    ( 
+        organization_id BIGINT,
+        organization_user_id BIGINT
+    )
+
+CREATE TABLE
     organization_user
 (
     id BIGINT PRIMARY KEY,
     display_name TEXT,
     idp_type TEXT,
     idp_credential_value TEXT UNIQUE,
-    organizations BIGINT ARRAY,
     invite_code TEXT,
     current_state INT,
-
     last_login_timestamp TIMESTAMP,
     created_timestamp TIMESTAMP
 )

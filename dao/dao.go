@@ -22,6 +22,7 @@ type DaoHandler interface {
 	LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, error)
 	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error)
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
+	LoadOrganizationsForUser(userID int64) (map[int64]*Organization, error)
 }
 
 type Dao struct {
@@ -50,8 +51,40 @@ func (d *Dao) GetNextUniqueId() int64 {
 	return rand.Int63()
 }
 
+func (d *Dao) LoadOrganizationsForUser(userID int64) (map[int64]*Organization, error) {
+	sqlStatement := `
+	SELECT 
+		id,display_name,path
+	FROM 
+		organization 
+	WHERE 
+		path <@ (SELECT path FROM organization WHERE id IN (SELECT organization_id FROM organization_organization_user_xref WHERE organization_user_id = $1))
+	ORDER BY 
+		path
+	`
+
+	var err error
+	rows, err := d.Db.Query(sqlStatement, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	userOrgs := make(map[int64]*Organization)
+	for rows.Next() {
+		org := &Organization{}
+		err = rows.Scan(&org.ID, &org.DisplayName, &org.Path)
+		if err != nil {
+			return nil, err
+		}
+		userOrgs[org.ID] = org
+	}
+
+	return userOrgs, nil
+}
+
 func (d *Dao) LogUserIn(idpAuthCredential string) (*OrganizationUser, error) {
-	sqlStatement := `SELECT id, display_name, organizations FROM organization_user WHERE idp_type = 'AUTH0' AND idp_credential_value=$1 AND current_state=1`
+	sqlStatement := `SELECT id, display_name, ARRAY(SELECT organization_id FROM organization_organization_user_xref WHERE organization_user_id = id) AS organizations FROM organization_user WHERE idp_type = 'AUTH0' AND idp_credential_value=$1 AND current_state=1`
 	var orgUser OrganizationUser
 
 	row := d.Db.QueryRow(sqlStatement, idpAuthCredential)
