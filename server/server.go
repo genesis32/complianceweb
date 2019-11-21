@@ -125,6 +125,7 @@ func (s *Server) Serve() {
 	apiRoutes.Use(authenticationRequired(s.SessionStore))
 	{
 		apiRoutes.GET("/organizations", s.registerWebApp(webhandlers.UserOrganizationApiHandler))
+		apiRoutes.POST("/gcp/service-account", s.registerWebApp(webhandlers.UserCreateGcpServiceAccountApiHandler))
 	}
 
 	s.router.GET("/", func(c *gin.Context) {
