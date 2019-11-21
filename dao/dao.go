@@ -23,6 +23,7 @@ type DaoHandler interface {
 	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error)
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
 	LoadOrganizationsForUser(userID int64) (map[int64]*Organization, error)
+	LoadOrganization(userID, organizationID int64) (*Organization, error)
 }
 
 type Dao struct {
@@ -51,6 +52,28 @@ func (d *Dao) GetNextUniqueId() int64 {
 	return rand.Int63()
 }
 
+func (d *Dao) LoadOrganization(userID, organizationID int64) (*Organization, error) {
+	sqlStatement := `
+	SELECT
+		id, display_name
+	FROM
+		organization
+	WHERE
+		id = $1
+	`
+	ret := &Organization{}
+	row := d.Db.QueryRow(sqlStatement, organizationID)
+	err := row.Scan(&ret.ID, &ret.DisplayName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error loading organization id %d error: %w", organizationID, err)
+	}
+
+	return ret, nil
+}
+
 func (d *Dao) LoadOrganizationsForUser(userID int64) (map[int64]*Organization, error) {
 	sqlStatement := `
 	SELECT 
@@ -62,7 +85,6 @@ func (d *Dao) LoadOrganizationsForUser(userID int64) (map[int64]*Organization, e
 	ORDER BY 
 		path
 	`
-
 	var err error
 	rows, err := d.Db.Query(sqlStatement, userID)
 	if err != nil {

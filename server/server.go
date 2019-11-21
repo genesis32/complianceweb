@@ -117,6 +117,7 @@ func (s *Server) Serve() {
 	authenticatedRoutes.Use(authenticationRequired(s.SessionStore))
 	{
 		authenticatedRoutes.GET("/", s.registerWebApp(webhandlers.UserIndexHandler))
+		authenticatedRoutes.GET("/organization/:organizationId", s.registerWebApp(webhandlers.UserOrganizationViewHandler))
 	}
 
 	apiRoutes := s.router.Group("/api")

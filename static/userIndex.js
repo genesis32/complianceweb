@@ -12,7 +12,7 @@ Vue.component('org-item', {
     template: `
     <div>
         <div>
-            {{ id }} {{ name }}
+            <a :href="'/webapp/user/organization/'+ id">{{ name }}</a>
         </div>
         <org-item v-for="child in children" v-bind:key="child.id" :id="child.id" :children="child.children" :name="child.name"></org-item>
     </div>
@@ -35,6 +35,6 @@ var orgListView = new Vue({
             });
     },
     data: {
-        tree: { name: "abc", children: [] }
+        tree: { name: "", children: [] }
     }
 })
