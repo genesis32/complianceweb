@@ -138,17 +138,27 @@ func (d *Dao) LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, erro
 }
 
 func (d *Dao) CreateInviteForUser(organizationId int64, name string) (string, error) {
+	var err error
 	inviteCode := fmt.Sprintf("%d", d.GetNextUniqueId())
 	orgUserID := fmt.Sprintf("%d", d.GetNextUniqueId())
 
 	sqlStatement := `
-		INSERT INTO organization_user (id, display_name, organizations, invite_code, created_timestamp, current_state)
-		VALUES ($1, $2, $3, $4, $5, 0)
+		INSERT INTO organization_user (id, display_name, invite_code, created_timestamp, current_state)
+		VALUES ($1, $2, $3, $4, $5);
 	`
-	_, err := d.Db.Exec(sqlStatement, orgUserID, name, fmt.Sprintf("{%d}", organizationId), inviteCode, "NOW()")
+	_, err = d.Db.Exec(sqlStatement, orgUserID, name, inviteCode, "NOW()", 0)
 	if err != nil {
 		panic(err)
 	}
+
+	sqlRefStatement := `
+		INSERT INTO organization_organization_user_xref (organization_id, organization_user_id) VALUES ($1, $2);
+	`
+	_, err = d.Db.Exec(sqlRefStatement, organizationId, orgUserID)
+	if err != nil {
+		panic(err)
+	}
+
 	return inviteCode, nil
 }
 

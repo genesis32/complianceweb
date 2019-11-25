@@ -48,9 +48,9 @@ func (s *Server) Shutdown() error {
 type webAppFunc func(s sessions.Store, dao dao.DaoHandler, c *gin.Context)
 
 func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
-	return (func(c *gin.Context) {
-		fn(s.SessionStore, s.Dao, c)
-	})
+	return func(c *gin.Context) {
+			fn(s.SessionStore, s.Dao, c)
+		}
 }
 
 func Logger() gin.HandlerFunc {
