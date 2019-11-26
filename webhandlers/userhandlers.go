@@ -35,5 +35,6 @@ func UserOrganizationViewHandler(store sessions.Store, daoHandler dao.DaoHandler
 
 	c.HTML(http.StatusOK, "userOrganization.tmpl", gin.H{
 		"organizationName": fmt.Sprintf("%s", theOrganization.DisplayName),
+		"orgId":            organizationIdStr,
 	})
 }

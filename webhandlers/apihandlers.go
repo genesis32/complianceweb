@@ -59,5 +59,7 @@ func UserOrganizationApiHandler(store sessions.Store, daoHandler dao.DaoHandler,
 }
 
 func UserCreateGcpServiceAccountApiHandler(store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
-	c.JSON(http.StatusOK, nil)
+	response := &GcpServiceAccountCreateResponse{}
+	response.ID = "foobar"
+	c.JSON(http.StatusOK, response)
 }

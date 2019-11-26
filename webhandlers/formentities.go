@@ -7,6 +7,7 @@ import (
 )
 
 type OrganizationForm struct {
+	// TODO: Change me to a string
 	ParentOrganizationID int64                 `form:"parent_organization_id"`
 	Name                 string                `form:"orgname" binding:"required"`
 	AccountCredential    *multipart.FileHeader `form:"master_account_json"`

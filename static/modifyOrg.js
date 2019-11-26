@@ -16,9 +16,9 @@ Vue.component('useradd-widget', {
     },
     methods: {
         addUser: function (event) {
-            var that=this;
+            let that = this;
             transport.post('/webapp/userJSON', {
-                organizationId: parseInt(that.orgid),
+                organizationId: that.orgid,
                 name: that.accountName
               })
               .then(function (response) {
