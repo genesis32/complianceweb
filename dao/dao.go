@@ -20,6 +20,7 @@ type DaoHandler interface {
 	CreateOrganization(*Organization) error
 	CreateInviteForUser(organizationId int64, name string) (string, error)
 	LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, error)
+	LoadUserFromCredential(credential string) (*OrganizationUser, error)
 	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error)
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
 	LoadOrganizationsForUser(userID int64) (map[int64]*Organization, error)
@@ -121,6 +122,21 @@ func (d *Dao) LogUserIn(idpAuthCredential string) (*OrganizationUser, error) {
 	return &orgUser, nil
 }
 
+func (d *Dao) LoadUserFromCredential(credential string) (*OrganizationUser, error) {
+	sqlStatement := `SELECT id, display_name, ARRAY(SELECT organization_id FROM organization_organization_user_xref WHERE organization_user_id = id), (current_state = 1) FROM organization_user WHERE idp_credential_value=$1`
+	var orgUser OrganizationUser
+
+	row := d.Db.QueryRow(sqlStatement, credential)
+	err := row.Scan(&orgUser.ID, &orgUser.DisplayName, pq.Array(&orgUser.Organizations), &orgUser.Active)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error loading user from credential %v: %w", credential, err)
+	}
+
+	return &orgUser, nil
+}
 func (d *Dao) LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, error) {
 	sqlStatement := `SELECT id, display_name FROM organization_user WHERE invite_code=$1 AND current_state=0`
 	var orgUser OrganizationUser

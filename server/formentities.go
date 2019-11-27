@@ -1,4 +1,4 @@
-package webhandlers
+package server
 
 import (
 	"bytes"

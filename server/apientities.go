@@ -1,4 +1,4 @@
-package webhandlers
+package server
 
 type OrganizationTreeNode struct {
 	// this needs to be a string because json sucks	and doesn't support 64 bit numbers

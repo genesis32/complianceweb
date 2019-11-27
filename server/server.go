@@ -1,11 +1,19 @@
 package server
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/gob"
+	"fmt"
+	"log"
 	"net/http"
+	"strconv"
+	"strings"
 
+	"github.com/coreos/go-oidc"
+	"github.com/genesis32/complianceweb/auth"
 	"github.com/genesis32/complianceweb/dao"
-	"github.com/genesis32/complianceweb/webhandlers"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/csrf"
 	"github.com/gorilla/sessions"
@@ -14,16 +22,21 @@ import (
 
 // Server contains all the server code
 type Server struct {
-	Dao          dao.DaoHandler
-	SessionStore sessions.Store
-	router       *gin.Engine
+	Dao           dao.DaoHandler
+	SessionStore  sessions.Store
+	Authenticator *auth.Authenticator
+	router        *gin.Engine
 }
 
 // NewServer returns a new server
 func NewServer() *Server {
 	sessionStore := sessions.NewFilesystemStore("", []byte("something-very-secret"))
 	dao := dao.NewDaoHandler()
-	return &Server{SessionStore: sessionStore, Dao: dao}
+	authenticator, err := auth.NewAuthenticator()
+	if err != nil {
+		panic(err)
+	}
+	return &Server{SessionStore: sessionStore, Dao: dao, Authenticator: authenticator}
 }
 
 // Startup the server
@@ -45,12 +58,12 @@ func (s *Server) Shutdown() error {
 	return err
 }
 
-type webAppFunc func(s sessions.Store, dao dao.DaoHandler, c *gin.Context)
+type webAppFunc func(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context)
 
 func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
 	return func(c *gin.Context) {
-			fn(s.SessionStore, s.Dao, c)
-		}
+		fn(s, s.SessionStore, s.Dao, c)
+	}
 }
 
 func Logger() gin.HandlerFunc {
@@ -62,6 +75,23 @@ func Logger() gin.HandlerFunc {
 			//ok this is an request with error, let's make a record for it
 			//log body here
 		}
+	}
+}
+
+func validIODCTokenRequired(s *Server) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authorizationHeader := c.GetHeader("Authorization")
+
+		if authorizationHeader != "" {
+			profile, err := s.Authenticator.ValidateAuthorizationHeader(authorizationHeader)
+			if err == nil && profile != nil {
+				c.Set("authenticated_user_profile", profile)
+				c.Next()
+				return
+			}
+		}
+		c.String(http.StatusUnauthorized, "Not authorized")
+		c.Abort()
 	}
 }
 
@@ -95,37 +125,36 @@ func (s *Server) Serve() {
 	webapp := s.router.Group("webapp")
 	webapp.Use(adapter.Wrap(csrfMiddleware))
 	{
-		webapp.GET("/", s.registerWebApp(webhandlers.IndexHandler))
-		webapp.GET("/login", s.registerWebApp(webhandlers.LoginHandler))
-		webapp.GET("/callback", s.registerWebApp(webhandlers.CallbackHandler))
-		webapp.GET("/profile", s.registerWebApp(webhandlers.ProfileHandler))
+		webapp.GET("/", s.registerWebApp(IndexHandler))
+		webapp.GET("/invite/:inviteCode", s.registerWebApp(InviteHandler))
+		webapp.GET("/login", s.registerWebApp(LoginHandler))
+		webapp.GET("/callback", s.registerWebApp(CallbackHandler))
+		webapp.GET("/bootstrap", s.registerWebApp(BootstrapHandler))
 
-		webapp.GET("/bootstrap", s.registerWebApp(webhandlers.BootstrapHandler))
+		webapp.GET("/profile", s.registerWebApp(ProfileHandler))
 
-		webapp.GET("/organization", s.registerWebApp(webhandlers.OrganizationCreateHandler))
-		webapp.POST("/organization", s.registerWebApp(webhandlers.OrganizationCreateHandler))
+		webapp.GET("/organization", s.registerWebApp(OrganizationCreateHandler))
+		webapp.POST("/organization", s.registerWebApp(OrganizationCreateHandler))
 
-		webapp.GET("/organization/:orgid", s.registerWebApp(webhandlers.OrganizationModifyHandler))
-		webapp.POST("/organization/:orgid", s.registerWebApp(webhandlers.OrganizationModifyHandler))
+		webapp.GET("/organization/:orgid", s.registerWebApp(OrganizationModifyHandler))
+		webapp.POST("/organization/:orgid", s.registerWebApp(OrganizationModifyHandler))
 
-		webapp.GET("/invite/:inviteCode", s.registerWebApp(webhandlers.InviteHandler))
-
-		webapp.GET("/userJSON", s.registerWebApp(webhandlers.UsersJsonHandler))
-		webapp.POST("/userJSON", s.registerWebApp(webhandlers.UsersJsonHandler))
+		webapp.GET("/userJSON", s.registerWebApp(UsersJsonHandler))
+		webapp.POST("/userJSON", s.registerWebApp(UsersJsonHandler))
 	}
 	authenticatedRoutes := webapp.Group("/user")
 	authenticatedRoutes.Use(authenticationRequired(s.SessionStore))
 	{
-		authenticatedRoutes.GET("/", s.registerWebApp(webhandlers.UserIndexHandler))
-		authenticatedRoutes.GET("/organization/:organizationId", s.registerWebApp(webhandlers.UserOrganizationViewHandler))
+		authenticatedRoutes.GET("/", s.registerWebApp(UserIndexHandler))
+		authenticatedRoutes.GET("/organization/:organizationId", s.registerWebApp(UserOrganizationViewHandler))
 	}
 
 	apiRoutes := s.router.Group("/api")
 	apiRoutes.Use(adapter.Wrap(csrfMiddleware))
-	apiRoutes.Use(authenticationRequired(s.SessionStore))
+	apiRoutes.Use(validIODCTokenRequired(s))
 	{
-		apiRoutes.GET("/organizations", s.registerWebApp(webhandlers.UserOrganizationApiHandler))
-		apiRoutes.POST("/gcp/service-account", s.registerWebApp(webhandlers.UserCreateGcpServiceAccountApiHandler))
+		apiRoutes.GET("/organizations", s.registerWebApp(UserOrganizationApiHandler))
+		apiRoutes.POST("/gcp/service-account", s.registerWebApp(UserCreateGcpServiceAccountApiHandler))
 	}
 
 	s.router.GET("/", func(c *gin.Context) {
@@ -133,4 +162,308 @@ func (s *Server) Serve() {
 	})
 
 	s.router.Run()
+}
+
+func IndexHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+
+	c.HTML(http.StatusOK, "index.tmpl", gin.H{
+		"title": "Welcome",
+	})
+}
+
+func ProfileHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	session, err := store.Get(c.Request, "auth-session")
+	if err != nil {
+		http.Error(c.Writer, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	t := session.Values["organization_user"].(*dao.OrganizationUser)
+	c.HTML(http.StatusOK, "profile.tmpl", gin.H{
+		"title": fmt.Sprintf("User: %+v userid:%d", session.Values["profile"], t.ID),
+	})
+}
+
+func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
+	w := c.Writer
+	r := c.Request
+
+	session, err := store.Get(r, "auth-session")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if r.URL.Query().Get("state") != session.Values["state"] {
+		http.Error(w, "Invalid state parameter", http.StatusBadRequest)
+		return
+	}
+
+	token, err := s.Authenticator.Config.Exchange(context.TODO(), r.URL.Query().Get("code"))
+	if err != nil {
+		log.Printf("no token found: %v", err)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	rawIDToken, ok := token.Extra("id_token").(string)
+	if !ok {
+		http.Error(w, "No id_token field in oauth2 token.", http.StatusInternalServerError)
+		return
+	}
+
+	oidcConfig := &oidc.Config{
+		ClientID: "***REMOVED***",
+	}
+
+	idToken, err := s.Authenticator.Provider.Verifier(oidcConfig).Verify(context.TODO(), rawIDToken)
+
+	if err != nil {
+		http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Getting now the userInfo
+	var profile map[string]interface{}
+	if err := idToken.Claims(&profile); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	stateWithInvite := strings.Split(r.URL.Query().Get("state"), "|")
+	if len(stateWithInvite) > 1 {
+		initialized, err := dao.InitUserFromInviteCode(stateWithInvite[1], fmt.Sprintf("%v", profile["sub"]))
+		if !initialized {
+			http.Error(w, "Failed to initialize user", http.StatusOK)
+			return
+		}
+		if err != nil {
+			http.Error(w, "Failed to initialize user: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	organizationUser, err := dao.LogUserIn(profile["sub"].(string))
+	if organizationUser == nil && err == nil {
+		http.Redirect(w, r, "/webapp", http.StatusSeeOther)
+		return
+	}
+
+	if err != nil {
+		http.Error(w, "Failed to initialize user: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	session.Values["id_token"] = rawIDToken
+	session.Values["access_token"] = token.AccessToken
+	session.Values["profile"] = profile
+	session.Values["organization_user"] = organizationUser
+	err = session.Save(r, w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"idToken": rawIDToken,
+	})
+
+}
+
+func BootstrapHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	c.Redirect(302, fmt.Sprintf("/webapp/organization"))
+}
+
+func OrganizationModifyHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	c.SetCookie("X-CSRF-Token", csrf.Token(c.Request), 1000*60*5, "", "", false, false)
+	orgId := c.Param("orgid")
+	if c.Request.Method == "GET" {
+		c.HTML(http.StatusOK, "modifyOrg.tmpl", gin.H{
+			"title": fmt.Sprintf("Modify Org %s", orgId),
+			"orgId": orgId,
+		})
+	}
+}
+
+func InviteHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	if c.Request.Method == "GET" {
+		inviteCode := c.Param("inviteCode")
+		theUser, err := daoHandler.LoadUserFromInviteCode(inviteCode)
+		if err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("error getting invite code: %s", err.Error()))
+			return
+		}
+		if theUser == nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("invite code not valid"))
+			return
+		}
+		c.Redirect(302, fmt.Sprintf("/webapp/login?inviteCode=%s", inviteCode))
+	}
+}
+
+func UsersJsonHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	if c.Request.Method == "GET" {
+		r := make(map[string]interface{})
+		r["foo"] = "GET"
+		c.JSON(200, r)
+	} else if c.Request.Method == "POST" {
+
+		var frm AddUserToOrganizationForm
+
+		if err := c.ShouldBind(&frm); err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("upload format: %s", err.Error()))
+			return
+		}
+
+		inviteCode, _ := daoHandler.CreateInviteForUser(frm.OrganizationId, frm.Name)
+
+		r := make(map[string]string)
+		r["inviteCode"] = inviteCode
+		c.JSON(200, r)
+	}
+}
+
+func OrganizationCreateHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	if c.Request.Method == "GET" {
+		c.HTML(http.StatusOK, "createOrg.tmpl", gin.H{
+			"title":          "Create Org",
+			csrf.TemplateTag: csrf.TemplateField(c.Request),
+		})
+	} else if c.Request.Method == "POST" {
+
+		var orgForm OrganizationForm
+		if err := c.ShouldBind(&orgForm); err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("upload binding: %s", err.Error()))
+			return
+		}
+		var newOrg dao.Organization
+		newOrg.ID = daoHandler.GetNextUniqueId()
+		newOrg.DisplayName = orgForm.Name
+		newOrg.MasterAccountType = "GCP"
+		newOrg.EncodeMasterAccountCredential(orgForm.RetrieveContents())
+
+		if err := daoHandler.CreateOrganization(&newOrg); err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("upload creating db org: %s", err.Error()))
+			return
+		}
+		c.Redirect(302, fmt.Sprintf("/webapp/organization/%d", newOrg.ID))
+	}
+}
+
+func LoginHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
+	w := c.Writer
+	r := c.Request
+	// Generate random state
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	state := base64.StdEncoding.EncodeToString(b)
+
+	session, err := store.Get(r, "auth-session")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// TODO: Hack to get an invite code into the callback
+	inviteCode := c.Query("inviteCode")
+	if inviteCode != "" {
+		state += fmt.Sprintf("|%s", inviteCode)
+	}
+
+	session.Values["state"] = state
+	err = session.Save(r, w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, s.Authenticator.Config.AuthCodeURL(state), http.StatusTemporaryRedirect)
+}
+
+func contains(n *OrganizationTreeNode, children []*OrganizationTreeNode) bool {
+	for _, ch := range children {
+		if ch == n {
+			return true
+		}
+	}
+	return false
+}
+
+func UserOrganizationApiHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	if c.Request.Method == "GET" {
+
+		subject, _ := c.Get("authenticated_user_profile")
+
+		t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+
+		organizations, _ := daoHandler.LoadOrganizationsForUser(t.ID)
+
+		orgTreeRep := make(map[int64]*OrganizationTreeNode)
+		// all the organizations we can see
+		for k, v := range organizations {
+			jsonFormatInt64 := strconv.FormatInt(k, 10)
+			orgTreeRep[k] = &OrganizationTreeNode{Name: v.DisplayName, ID: jsonFormatInt64, Children: []*OrganizationTreeNode{}}
+		}
+
+		for k := range orgTreeRep {
+			pathPieces := strings.Split(organizations[k].Path, ".")
+			for i := range pathPieces {
+				if i > 0 {
+					parentID, _ := strconv.ParseInt(pathPieces[i-1], 10, 64)
+					// if we can't see the parent just disregard even mapping it..
+					if orgTreeRep[parentID] == nil {
+						continue
+					}
+					pathID, _ := strconv.ParseInt(pathPieces[i], 10, 64)
+					if !contains(orgTreeRep[pathID], orgTreeRep[parentID].Children) {
+						orgTreeRep[parentID].Children = append(orgTreeRep[parentID].Children, orgTreeRep[pathID])
+					}
+				}
+			}
+		}
+		// hack for now.. single node and just return where in the tree it's visible from
+		treeRoot := orgTreeRep[t.Organizations[0]]
+
+		c.JSON(http.StatusOK, treeRoot)
+	} else if c.Request.Method == "POST" {
+
+	}
+}
+
+func UserCreateGcpServiceAccountApiHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	response := &GcpServiceAccountCreateResponse{}
+	response.ID = "foobar"
+	c.JSON(http.StatusOK, response)
+}
+
+func UserIndexHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	c.SetCookie("X-CSRF-Token", csrf.Token(c.Request), 1000*60*5, "", "", false, false)
+
+	session, _ := store.Get(c.Request, "auth-session")
+	t := session.Values["organization_user"].(*dao.OrganizationUser)
+
+	c.HTML(http.StatusOK, "userIndex.tmpl", gin.H{
+		"dataz": fmt.Sprintf("OrgUser:%+v", t),
+	})
+}
+
+func UserOrganizationViewHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	c.SetCookie("X-CSRF-Token", csrf.Token(c.Request), 1000*60*5, "", "", false, false)
+
+	organizationIdStr := c.Param("organizationId")
+	organizationId, _ := strconv.ParseInt(organizationIdStr, 10, 64)
+
+	session, _ := store.Get(c.Request, "auth-session")
+	theUser := session.Values["organization_user"].(*dao.OrganizationUser)
+
+	theOrganization, _ := daoHandler.LoadOrganization(theUser.ID, organizationId)
+
+	c.HTML(http.StatusOK, "userOrganization.tmpl", gin.H{
+		"organizationName": fmt.Sprintf("%s", theOrganization.DisplayName),
+		"orgId":            organizationIdStr,
+	})
 }

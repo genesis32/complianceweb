@@ -23,6 +23,7 @@ type OrganizationUser struct {
 	ID            int64
 	DisplayName   string
 	Organizations []int64
+	Active        bool
 }
 
 func (o *Organization) EncodeMasterAccountCredential(cred string) {
