@@ -2,6 +2,7 @@ package dao
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -25,6 +26,7 @@ type DaoHandler interface {
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
 	LoadOrganizationsForUser(userID int64) (map[int64]*Organization, error)
 	LoadOrganization(userID, organizationID int64) (*Organization, error)
+	LoadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error)
 }
 
 type Dao struct {
@@ -33,6 +35,48 @@ type Dao struct {
 
 func NewDaoHandler() DaoHandler {
 	return &Dao{Db: nil}
+}
+
+func (d *Dao) LoadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error) {
+	// find my first parent that has a valid service account (will always terminate at the root)
+	sqlStatement := `
+SELECT
+    orgid, mat, mac
+FROM
+    (SELECT
+         orgid,
+         ordernum,
+         (SELECT master_account_type FROM organization WHERE id = orgid::bigint) mat,
+         (SELECT master_account_credential FROM organization WHERE id = orgid::bigint) mac
+     FROM
+         organization o,
+         regexp_split_to_table(o.path::text, E'\\.') WITH ORDINALITY x(orgid,ordernum)
+     WHERE TRUE
+       AND o.id = $1) as orgs_with_accts
+WHERE
+    mat IS NOT NULL
+ORDER BY ordernum DESC LIMIT 1;
+	`
+	var credentials ServiceAccountCredentials
+	var err error
+	row := d.Db.QueryRow(sqlStatement, organizationId)
+
+	var jsonCredentials string
+	err = row.Scan(&credentials.OwningOrganizationID, &credentials.Type, &jsonCredentials)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("error loading user from credential: %w", err)
+	}
+
+	err = json.Unmarshal([]byte(jsonCredentials), &credentials.Credentials)
+	if err != nil {
+		return nil, fmt.Errorf("error loading user from credential: %w", err)
+	}
+
+	return &credentials, nil
 }
 
 func (d *Dao) Open() error {

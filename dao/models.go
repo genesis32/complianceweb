@@ -4,6 +4,12 @@ const (
 	GcpAccount = "GCP"
 )
 
+type ServiceAccountCredentials struct {
+	OwningOrganizationID int64
+	Type                 string
+	Credentials          map[string]interface{}
+}
+
 type User struct {
 	ID                    int64
 	DisplayName           string

@@ -40,14 +40,12 @@ func (a *Authenticator) ValidateAuthorizationHeader(headerValue string) (OpenIDC
 	idToken, err := a.verifier.Verify(context.TODO(), rs[1])
 
 	if err != nil {
-		//		http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
 		return nil, err
 	}
 
 	// Getting now the userInfo
 	var profile map[string]interface{}
 	if err := idToken.Claims(&profile); err != nil {
-		//		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return nil, err
 	}
 	return profile, nil
@@ -81,7 +79,8 @@ func NewAuthenticator() (*Authenticator, error) {
 	}
 
 	oidcConfig := &oidc.Config{
-		ClientID: "***REMOVED***",
+		ClientID:             "***REMOVED***",
+		SupportedSigningAlgs: []string{"RS256"},
 	}
 
 	theVerifier := provider.Verifier(oidcConfig)

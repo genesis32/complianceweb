@@ -78,7 +78,7 @@ func Logger() gin.HandlerFunc {
 	}
 }
 
-func validIODCTokenRequired(s *Server) gin.HandlerFunc {
+func validOIDCTokenRequired(s *Server) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authorizationHeader := c.GetHeader("Authorization")
 
@@ -150,8 +150,7 @@ func (s *Server) Serve() {
 	}
 
 	apiRoutes := s.router.Group("/api")
-	apiRoutes.Use(adapter.Wrap(csrfMiddleware))
-	apiRoutes.Use(validIODCTokenRequired(s))
+	apiRoutes.Use(validOIDCTokenRequired(s))
 	{
 		apiRoutes.GET("/organizations", s.registerWebApp(UserOrganizationApiHandler))
 		apiRoutes.POST("/gcp/service-account", s.registerWebApp(UserCreateGcpServiceAccountApiHandler))
@@ -384,7 +383,7 @@ func LoginHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Co
 	http.Redirect(w, r, s.Authenticator.Config.AuthCodeURL(state), http.StatusTemporaryRedirect)
 }
 
-func contains(n *OrganizationTreeNode, children []*OrganizationTreeNode) bool {
+func contains(n *UserOrganizationResponse, children []*UserOrganizationResponse) bool {
 	for _, ch := range children {
 		if ch == n {
 			return true
@@ -402,11 +401,11 @@ func UserOrganizationApiHandler(s *Server, store sessions.Store, daoHandler dao.
 
 		organizations, _ := daoHandler.LoadOrganizationsForUser(t.ID)
 
-		orgTreeRep := make(map[int64]*OrganizationTreeNode)
+		orgTreeRep := make(map[int64]*UserOrganizationResponse)
 		// all the organizations we can see
 		for k, v := range organizations {
 			jsonFormatInt64 := strconv.FormatInt(k, 10)
-			orgTreeRep[k] = &OrganizationTreeNode{Name: v.DisplayName, ID: jsonFormatInt64, Children: []*OrganizationTreeNode{}}
+			orgTreeRep[k] = &UserOrganizationResponse{Name: v.DisplayName, ID: jsonFormatInt64, Children: []*UserOrganizationResponse{}}
 		}
 
 		for k := range orgTreeRep {
@@ -435,8 +434,24 @@ func UserOrganizationApiHandler(s *Server, store sessions.Store, daoHandler dao.
 }
 
 func UserCreateGcpServiceAccountApiHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	var req GcpServiceAccountCreateRequest
+	if err := c.ShouldBind(&req); err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("bad request: %s", err.Error()))
+		return
+	}
+	owningOrganizationID, _ := strconv.ParseInt(req.OwningOrganizationID, 10, 64)
+
 	response := &GcpServiceAccountCreateResponse{}
-	response.ID = "foobar"
+
+	serviceAccountCredentials, err := daoHandler.LoadServiceAccountCredentials(owningOrganizationID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, response)
+		return
+	}
+
+	if serviceAccountCredentials != nil {
+		response.ID = serviceAccountCredentials.Type
+	}
 	c.JSON(http.StatusOK, response)
 }
 
