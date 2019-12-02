@@ -25,8 +25,9 @@ type DaoHandler interface {
 	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error)
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
 	LoadOrganizationsForUser(userID int64) (map[int64]*Organization, error)
-	LoadOrganization(userID, organizationID int64) (*Organization, error)
+	LoadOrganization(organizationID int64) (*Organization, error)
 	LoadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error)
+	CanUserViewOrg(userID, organizationID int64) (bool, error)
 }
 
 type Dao struct {
@@ -37,6 +38,33 @@ func NewDaoHandler() DaoHandler {
 	return &Dao{Db: nil}
 }
 
+func (d *Dao) CanUserViewOrg(userID, organizationID int64) (bool, error) {
+	sqlStatement := ` 
+	SELECT
+		count(1)
+	FROM
+		organization
+	WHERE TRUE
+		AND path <@ (SELECT path FROM organization WHERE id IN (SELECT organization_id FROM organization_organization_user_xref WHERE organization_user_id=$1))
+		AND id=$2
+	GROUP BY
+		path
+`
+	var count int
+	row := d.Db.QueryRow(sqlStatement, userID, organizationID)
+
+	var err error
+	err = row.Scan(&count)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("error loading orgs to see if user can view: %w", err)
+	}
+
+	return count > 0, nil
+}
 func (d *Dao) LoadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error) {
 	// find my first parent that has a valid service account (will always terminate at the root)
 	sqlStatement := `
@@ -97,7 +125,7 @@ func (d *Dao) GetNextUniqueId() int64 {
 	return rand.Int63()
 }
 
-func (d *Dao) LoadOrganization(userID, organizationID int64) (*Organization, error) {
+func (d *Dao) LoadOrganization(organizationID int64) (*Organization, error) {
 	sqlStatement := `
 	SELECT
 		id, display_name

@@ -434,12 +434,24 @@ func UserOrganizationApiHandler(s *Server, store sessions.Store, daoHandler dao.
 }
 
 func UserCreateGcpServiceAccountApiHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+
+	subject, _ := c.Get("authenticated_user_profile")
+
+	t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+
 	var req GcpServiceAccountCreateRequest
 	if err := c.ShouldBind(&req); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("bad request: %s", err.Error()))
 		return
 	}
 	owningOrganizationID, _ := strconv.ParseInt(req.OwningOrganizationID, 10, 64)
+
+	canView, _ := daoHandler.CanUserViewOrg(t.ID, owningOrganizationID)
+
+	if !canView {
+		c.String(http.StatusUnauthorized, "not authorized")
+		return
+	}
 
 	response := &GcpServiceAccountCreateResponse{}
 
@@ -472,10 +484,7 @@ func UserOrganizationViewHandler(s *Server, store sessions.Store, daoHandler dao
 	organizationIdStr := c.Param("organizationId")
 	organizationId, _ := strconv.ParseInt(organizationIdStr, 10, 64)
 
-	session, _ := store.Get(c.Request, "auth-session")
-	theUser := session.Values["organization_user"].(*dao.OrganizationUser)
-
-	theOrganization, _ := daoHandler.LoadOrganization(theUser.ID, organizationId)
+	theOrganization, _ := daoHandler.LoadOrganization(organizationId)
 
 	c.HTML(http.StatusOK, "userOrganization.tmpl", gin.H{
 		"organizationName": fmt.Sprintf("%s", theOrganization.DisplayName),
