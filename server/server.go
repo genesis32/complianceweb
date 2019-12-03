@@ -461,8 +461,10 @@ func UserCreateGcpServiceAccountApiHandler(s *Server, store sessions.Store, daoH
 		return
 	}
 
-	if serviceAccountCredentials != nil {
-		response.ID = serviceAccountCredentials.Type
+	serviceAccountKey, _ := createServiceAccount(context.Background(), serviceAccountCredentials.RawCredentials, req.DisplayName)
+
+	if serviceAccountKey != nil {
+		response.ID = serviceAccountKey.Name
 	}
 	c.JSON(http.StatusOK, response)
 }

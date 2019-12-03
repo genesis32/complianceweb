@@ -99,7 +99,9 @@ ORDER BY ordernum DESC LIMIT 1;
 		return nil, fmt.Errorf("error loading user from credential: %w", err)
 	}
 
-	err = json.Unmarshal([]byte(jsonCredentials), &credentials.Credentials)
+	credentials.RawCredentials = []byte(jsonCredentials)
+
+	err = json.Unmarshal(credentials.RawCredentials, &credentials.Credentials)
 	if err != nil {
 		return nil, fmt.Errorf("error loading user from credential: %w", err)
 	}

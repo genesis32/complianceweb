@@ -8,6 +8,7 @@ type ServiceAccountCredentials struct {
 	OwningOrganizationID int64
 	Type                 string
 	Credentials          map[string]interface{}
+	RawCredentials       []byte
 }
 
 type User struct {
