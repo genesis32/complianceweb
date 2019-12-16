@@ -99,12 +99,12 @@ func authenticationRequired(store sessions.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session, err := store.Get(c.Request, "auth-session")
 		if err != nil {
-			c.String(http.StatusUnauthorized, "Not authorized")
+			c.String(http.StatusUnauthorized, "Not authenticated")
 			c.Abort()
 		}
 		_, ok := session.Values["organization_user"].(*dao.OrganizationUser)
 		if !ok {
-			c.String(http.StatusUnauthorized, "Not authorized")
+			c.String(http.StatusUnauthorized, "Not authenticated")
 			c.Abort()
 		}
 		c.Next()
@@ -130,17 +130,6 @@ func (s *Server) Serve() {
 		webapp.GET("/login", s.registerWebApp(LoginHandler))
 		webapp.GET("/callback", s.registerWebApp(CallbackHandler))
 		webapp.GET("/bootstrap", s.registerWebApp(BootstrapHandler))
-
-		webapp.GET("/profile", s.registerWebApp(ProfileHandler))
-
-		webapp.GET("/organization", s.registerWebApp(OrganizationCreateHandler))
-		webapp.POST("/organization", s.registerWebApp(OrganizationCreateHandler))
-
-		webapp.GET("/organization/:orgid", s.registerWebApp(OrganizationModifyHandler))
-		webapp.POST("/organization/:orgid", s.registerWebApp(OrganizationModifyHandler))
-
-		webapp.GET("/userJSON", s.registerWebApp(UsersJsonHandler))
-		webapp.POST("/userJSON", s.registerWebApp(UsersJsonHandler))
 	}
 	authenticatedRoutes := webapp.Group("/user")
 	authenticatedRoutes.Use(authenticationRequired(s.SessionStore))
@@ -152,8 +141,13 @@ func (s *Server) Serve() {
 	apiRoutes := s.router.Group("/api")
 	apiRoutes.Use(validOIDCTokenRequired(s))
 	{
-		apiRoutes.GET("/organizations", s.registerWebApp(UserOrganizationApiHandler))
-		apiRoutes.POST("/gcp/service-account", s.registerWebApp(UserCreateGcpServiceAccountApiHandler))
+		apiRoutes.POST("/organizations", s.registerWebApp(OrganizationApiPostHandler))
+		apiRoutes.GET("/organizations", s.registerWebApp(OrganizationApiGetHandler))
+		apiRoutes.GET("/organizations/:organizationID", s.registerWebApp(OrganizationDetailsApiGetHandler))
+
+		apiRoutes.POST("/users", s.registerWebApp(UserApiPostHandler))
+
+		apiRoutes.POST("/gcp/service-account", s.registerWebApp(UserCreateGcpServiceAccountApiPostHandler))
 	}
 
 	s.router.GET("/", func(c *gin.Context) {
@@ -392,52 +386,97 @@ func contains(n *UserOrganizationResponse, children []*UserOrganizationResponse)
 	return false
 }
 
-func UserOrganizationApiHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
-	if c.Request.Method == "GET" {
+func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 
-		subject, _ := c.Get("authenticated_user_profile")
-
-		t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
-
-		organizations, _ := daoHandler.LoadOrganizationsForUser(t.ID)
-
-		orgTreeRep := make(map[int64]*UserOrganizationResponse)
-		// all the organizations we can see
-		for k, v := range organizations {
-			jsonFormatInt64 := strconv.FormatInt(k, 10)
-			orgTreeRep[k] = &UserOrganizationResponse{Name: v.DisplayName, ID: jsonFormatInt64, Children: []*UserOrganizationResponse{}}
-		}
-
-		for k := range orgTreeRep {
-			pathPieces := strings.Split(organizations[k].Path, ".")
-			for i := range pathPieces {
-				if i > 0 {
-					parentID, _ := strconv.ParseInt(pathPieces[i-1], 10, 64)
-					// if we can't see the parent just disregard even mapping it..
-					if orgTreeRep[parentID] == nil {
-						continue
-					}
-					pathID, _ := strconv.ParseInt(pathPieces[i], 10, 64)
-					if !contains(orgTreeRep[pathID], orgTreeRep[parentID].Children) {
-						orgTreeRep[parentID].Children = append(orgTreeRep[parentID].Children, orgTreeRep[pathID])
-					}
-				}
-			}
-		}
-		// hack for now.. single node and just return where in the tree it's visible from
-		treeRoot := orgTreeRep[t.Organizations[0]]
-
-		c.JSON(http.StatusOK, treeRoot)
-	} else if c.Request.Method == "POST" {
-
+	var createRequest OrganizationCreateRequest
+	if err := c.ShouldBind(&createRequest); err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("upload binding: %s", err.Error()))
+		return
 	}
+	var newOrg dao.Organization
+	newOrg.ID = daoHandler.GetNextUniqueId()
+	newOrg.DisplayName = createRequest.Name
+	newOrg.MasterAccountType = createRequest.AccountCredentialType
+	newOrg.EncodeMasterAccountCredential(createRequest.AccountCredential)
+
+	if err := daoHandler.CreateOrganization(&newOrg); err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("upload creating db org: %s", err.Error()))
+		return
+	}
+
+	if createRequest.ParentOrganizationID != 0 {
+		daoHandler.AssignOrganizationToParent(createRequest.ParentOrganizationID, newOrg.ID)
+	}
+
+	createResponse := &OrganizationCreateResponse{}
+	createResponse.ID = newOrg.ID
+	c.JSON(201, createResponse)
 }
 
-func UserCreateGcpServiceAccountApiHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	//subject, _ := c.Get("authenticated_user_profile")
+	//	t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
 
+	organizationIdStr := c.Param("organizationID")
+	organizationId, _ := strconv.ParseInt(organizationIdStr, 10, 64)
+
+	organization, _ := daoHandler.LoadOrganization(organizationId)
+
+	c.JSON(http.StatusOK, organization)
+}
+
+func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 	subject, _ := c.Get("authenticated_user_profile")
 
 	t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+
+	organizations, _ := daoHandler.LoadOrganizationsForUser(t.ID)
+
+	orgTreeRep := make(map[int64]*UserOrganizationResponse)
+	// all the organizations we can see
+	for k, v := range organizations {
+		orgTreeRep[k] = &UserOrganizationResponse{Name: v.DisplayName, ID: k, Children: []*UserOrganizationResponse{}}
+	}
+
+	for k := range orgTreeRep {
+		pathPieces := strings.Split(organizations[k].Path, ".")
+		for i := range pathPieces {
+			if i > 0 {
+				parentID, _ := strconv.ParseInt(pathPieces[i-1], 10, 64)
+				// if we can't see the parent just disregard even mapping it..
+				if orgTreeRep[parentID] == nil {
+					continue
+				}
+				pathID, _ := strconv.ParseInt(pathPieces[i], 10, 64)
+				if !contains(orgTreeRep[pathID], orgTreeRep[parentID].Children) {
+					orgTreeRep[parentID].Children = append(orgTreeRep[parentID].Children, orgTreeRep[pathID])
+				}
+			}
+		}
+	}
+	// hack for now.. single node and just return where in the tree it's visible from
+	treeRoot := orgTreeRep[t.Organizations[0]]
+
+	c.JSON(http.StatusOK, treeRoot)
+}
+
+func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+	var addRequest AddUserToOrganizationRequest
+
+	if err := c.ShouldBind(&addRequest); err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("upload format: %s", err.Error()))
+		return
+	}
+
+	inviteCode, _ := daoHandler.CreateInviteForUser(addRequest.ParentOrganizationID, addRequest.Name)
+
+	r := make(map[string]string)
+	r["inviteCode"] = inviteCode
+	r["href"] = fmt.Sprintf("http://localhost:3000/webapp/login?inviteCode=%v", inviteCode)
+	c.JSON(200, r)
+}
+
+func UserCreateGcpServiceAccountApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 
 	var req GcpServiceAccountCreateRequest
 	if err := c.ShouldBind(&req); err != nil {
@@ -445,6 +484,9 @@ func UserCreateGcpServiceAccountApiHandler(s *Server, store sessions.Store, daoH
 		return
 	}
 	owningOrganizationID, _ := strconv.ParseInt(req.OwningOrganizationID, 10, 64)
+
+	subject, _ := c.Get("authenticated_user_profile")
+	t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
 
 	canView, _ := daoHandler.CanUserViewOrg(t.ID, owningOrganizationID)
 

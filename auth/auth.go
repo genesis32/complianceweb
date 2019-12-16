@@ -37,6 +37,7 @@ func (a *Authenticator) ValidateAuthorizationHeader(headerValue string) (OpenIDC
 		return nil, errors.New("cannot parse header")
 	}
 
+	// TODO: Check nonce
 	idToken, err := a.verifier.Verify(context.TODO(), rs[1])
 
 	if err != nil {

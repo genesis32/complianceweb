@@ -1,8 +1,7 @@
 package server
 
 type UserOrganizationResponse struct {
-	// this needs to be a string because json sucks	and doesn't support 64 bit numbers
-	ID       string                      `json:"id"`
+	ID       int64                       `json:",string,omitempty"`
 	Name     string                      `json:"name"`
 	Children []*UserOrganizationResponse `json:"children"`
 }
@@ -17,4 +16,20 @@ type GcpServiceAccountCreateResponse struct {
 	ID         string
 	State      string
 	Credential string
+}
+
+type OrganizationCreateRequest struct {
+	ParentOrganizationID  int64 `json:",string,omitempty"`
+	Name                  string
+	AccountCredentialType string
+	AccountCredential     string
+}
+
+type OrganizationCreateResponse struct {
+	ID int64 `json:",string,omitempty"`
+}
+
+type AddUserToOrganizationRequest struct {
+	Name                 string
+	ParentOrganizationID int64 `json:",string,omitempty"`
 }

@@ -22,8 +22,9 @@ type Organization struct {
 	ID                      int64
 	DisplayName             string
 	MasterAccountType       string
-	masterAccountCredential string
+	masterAccountCredential string // TODO: Break this out later
 	Path                    string
+	Users                   []*OrganizationUser
 }
 
 type OrganizationUser struct {

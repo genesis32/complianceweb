@@ -19,6 +19,7 @@ type DaoHandler interface {
 	TrySelect()
 	GetNextUniqueId() int64
 	CreateOrganization(*Organization) error
+	AssignOrganizationToParent(parentId, orgID int64) (bool, error)
 	CreateInviteForUser(organizationId int64, name string) (string, error)
 	LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, error)
 	LoadUserFromCredential(credential string) (*OrganizationUser, error)
@@ -36,6 +37,25 @@ type Dao struct {
 
 func NewDaoHandler() DaoHandler {
 	return &Dao{Db: nil}
+}
+
+func (d *Dao) AssignOrganizationToParent(parentID int64, orgID int64) (bool, error) {
+	sqlStatement := `
+		UPDATE
+			organization	
+		SET
+			path = (SELECT path FROM organization WHERE id = $1) || CAST($2 as TEXT)
+		WHERE
+			id = $2
+`
+	_, err := d.Db.Exec(sqlStatement, parentID, orgID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("error adding organization to parent %w", err)
+	}
+	return true, nil
 }
 
 func (d *Dao) CanUserViewOrg(userID, organizationID int64) (bool, error) {
@@ -128,7 +148,9 @@ func (d *Dao) GetNextUniqueId() int64 {
 }
 
 func (d *Dao) LoadOrganization(organizationID int64) (*Organization, error) {
-	sqlStatement := `
+	ret := &Organization{}
+	{
+		sqlStatement := `
 	SELECT
 		id, display_name
 	FROM
@@ -136,14 +158,42 @@ func (d *Dao) LoadOrganization(organizationID int64) (*Organization, error) {
 	WHERE
 		id = $1
 	`
-	ret := &Organization{}
-	row := d.Db.QueryRow(sqlStatement, organizationID)
-	err := row.Scan(&ret.ID, &ret.DisplayName)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		row := d.Db.QueryRow(sqlStatement, organizationID)
+		err := row.Scan(&ret.ID, &ret.DisplayName)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error loading organization id %d error: %w", organizationID, err)
+		}
 	}
-	if err != nil {
-		return nil, fmt.Errorf("error loading organization id %d error: %w", organizationID, err)
+
+	{
+		sqlStatement := `
+	SELECT 
+		id,display_name
+	FROM 
+		organization_user 
+	WHERE 
+		id IN (SELECT organization_user_id FROM organization_organization_user_xref WHERE organization_id = $1)
+	ORDER BY 
+		display_name
+	`
+		var err error
+		rows, err := d.Db.Query(sqlStatement, organizationID)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			u := &OrganizationUser{}
+			err = rows.Scan(&u.ID, &u.DisplayName)
+			if err != nil {
+				return nil, err
+			}
+			ret.Users = append(ret.Users, u)
+		}
 	}
 
 	return ret, nil
