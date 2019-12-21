@@ -1,13 +1,13 @@
 package server
 
 type UserOrganizationResponse struct {
-	ID       int64                       `json:",string,omitempty"`
-	Name     string                      `json:"name"`
-	Children []*UserOrganizationResponse `json:"children"`
+	ID       int64 `json:",string,omitempty"`
+	Name     string
+	Children []*UserOrganizationResponse
 }
 
 type GcpServiceAccountCreateRequest struct {
-	OwningOrganizationID string
+	OwningOrganizationID int64 `json:",string,omitempty"`
 	OwningGcpProjectID   string
 	DisplayName          string
 }
@@ -32,4 +32,9 @@ type OrganizationCreateResponse struct {
 type AddUserToOrganizationRequest struct {
 	Name                 string
 	ParentOrganizationID int64 `json:",string,omitempty"`
+}
+
+type AddUserToOrganizationResponse struct {
+	InviteCode string
+	Href       string
 }

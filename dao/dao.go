@@ -26,7 +26,7 @@ type DaoHandler interface {
 	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error)
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
 	LoadOrganizationsForUser(userID int64) (map[int64]*Organization, error)
-	LoadOrganization(organizationID int64) (*Organization, error)
+	LoadOrganizationDetails(organizationID int64) (*Organization, error)
 	LoadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error)
 	CanUserViewOrg(userID, organizationID int64) (bool, error)
 }
@@ -147,7 +147,7 @@ func (d *Dao) GetNextUniqueId() int64 {
 	return rand.Int63()
 }
 
-func (d *Dao) LoadOrganization(organizationID int64) (*Organization, error) {
+func (d *Dao) LoadOrganizationDetails(organizationID int64) (*Organization, error) {
 	ret := &Organization{}
 	{
 		sqlStatement := `
@@ -176,6 +176,7 @@ func (d *Dao) LoadOrganization(organizationID int64) (*Organization, error) {
 		organization_user 
 	WHERE 
 		id IN (SELECT organization_user_id FROM organization_organization_user_xref WHERE organization_id = $1)
+		AND current_state = 1
 	ORDER BY 
 		display_name
 	`
