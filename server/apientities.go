@@ -38,3 +38,6 @@ type AddUserToOrganizationResponse struct {
 	InviteCode string
 	Href       string
 }
+
+type AssignRoleToUserRequest struct {
+}

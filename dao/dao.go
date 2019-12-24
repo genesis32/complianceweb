@@ -13,6 +13,12 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const (
+	ServiceAccountCreatePermission = "serviceaccount.create.execute"
+	UserCreatePermission           = "user.create.execute"
+	OrganizationCreatePermission   = "organization.create.execute"
+)
+
 type DaoHandler interface {
 	Open() error
 	Close() error
@@ -29,6 +35,8 @@ type DaoHandler interface {
 	LoadOrganizationDetails(organizationID int64) (*Organization, error)
 	LoadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error)
 	CanUserViewOrg(userID, organizationID int64) (bool, error)
+
+	DoesUserHavePermission(userID, organizationID int64, permission string) (bool, error)
 }
 
 type Dao struct {
@@ -37,6 +45,40 @@ type Dao struct {
 
 func NewDaoHandler() DaoHandler {
 	return &Dao{Db: nil}
+}
+
+func (d *Dao) DoesUserHavePermission(userID, organizationID int64, permission string) (bool, error) {
+	// Test if any of the orgs between the root of the user and the org they are acting on (including
+	// themselves contain the necessary role w/ permission.
+	sqlStatement := `
+		SELECT
+				count(1)
+		FROM
+				organization_organization_user_role_xref 
+		WHERE TRUE
+				AND organization_id IN
+				(SELECT id FROM organization WHERE path <@ 
+				  (SELECT path FROM organization WHERE id IN 
+					  (SELECT organization_id FROM organization_organization_user_xref 
+						WHERE organization_user_id=$1)) AND path @> (SELECT path FROM organization WHERE id=$2))
+				AND role_id IN 
+				(SELECT r.id FROM role r, permission p, role_permission_xref rpx WHERE
+				p.id = rpx.permission_id AND r.id = rpx.role_id AND p.value = $3)
+`
+	var count int
+	row := d.Db.QueryRow(sqlStatement, userID, organizationID, permission)
+
+	var err error
+	err = row.Scan(&count)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("error checking permissions for user: %w", err)
+	}
+
+	return count > 0, nil
 }
 
 func (d *Dao) AssignOrganizationToParent(parentID int64, orgID int64) (bool, error) {

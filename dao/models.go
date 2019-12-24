@@ -34,6 +34,18 @@ type OrganizationUser struct {
 	Active        bool
 }
 
+type Role struct {
+	ID          int64
+	DisplayName string
+	Permissions []*Permission
+}
+
+type Permission struct {
+	ID          int64
+	DisplayName string
+	Value       string
+}
+
 func (o *Organization) EncodeMasterAccountCredential(cred string) {
 	o.masterAccountCredential = cred
 }

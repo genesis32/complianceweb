@@ -244,28 +244,6 @@ func InviteHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c
 	}
 }
 
-func UsersJsonHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
-	if c.Request.Method == "GET" {
-		r := make(map[string]interface{})
-		r["foo"] = "GET"
-		c.JSON(200, r)
-	} else if c.Request.Method == "POST" {
-
-		var frm AddUserToOrganizationForm
-
-		if err := c.ShouldBind(&frm); err != nil {
-			c.String(http.StatusBadRequest, fmt.Sprintf("upload format: %s", err.Error()))
-			return
-		}
-
-		inviteCode, _ := daoHandler.CreateInviteForUser(frm.OrganizationId, frm.Name)
-
-		r := make(map[string]string)
-		r["inviteCode"] = inviteCode
-		c.JSON(200, r)
-	}
-}
-
 func LoginHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
 	w := c.Writer
 	r := c.Request
@@ -317,7 +295,17 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 		return
 	}
 
+	subject, _ := c.Get("authenticated_user_profile")
+	t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+
 	// TODO: Add in test that user has visibility over a ParentOrganizationID
+	if createRequest.ParentOrganizationID != 0 {
+		hasPermission, _ := daoHandler.DoesUserHavePermission(t.ID, createRequest.ParentOrganizationID, dao.OrganizationCreatePermission)
+		if !hasPermission {
+			c.String(http.StatusUnauthorized, "not authorized")
+			return
+		}
+	}
 
 	var newOrg dao.Organization
 	newOrg.ID = daoHandler.GetNextUniqueId()
