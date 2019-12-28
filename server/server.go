@@ -48,6 +48,14 @@ func (s *Server) Startup() error {
 		return dbOpenErr
 	}
 	s.Dao.TrySelect()
+
+	settings := []dao.Setting{{Key: "foo", Value: "bar0"}}
+	_, err := s.Dao.UpdateSettings(settings)
+	fmt.Printf("errors: %+v\n", err)
+
+	dbSettings, err := s.Dao.GetSettings("foo", "bar")
+	fmt.Printf("data: %#v errors: %+v]\n", dbSettings[0], err)
+
 	return nil
 }
 

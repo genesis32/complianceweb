@@ -26,7 +26,6 @@ type Organization struct {
 	Path                    string
 	Users                   []*OrganizationUser
 }
-
 type OrganizationUser struct {
 	ID            int64
 	DisplayName   string
@@ -44,6 +43,11 @@ type Permission struct {
 	ID          int64
 	DisplayName string
 	Value       string
+}
+
+type Setting struct {
+	Key   string
+	Value string
 }
 
 func (o *Organization) EncodeMasterAccountCredential(cred string) {

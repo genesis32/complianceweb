@@ -37,6 +37,9 @@ type DaoHandler interface {
 	CanUserViewOrg(userID, organizationID int64) (bool, error)
 
 	DoesUserHavePermission(userID, organizationID int64, permission string) (bool, error)
+
+	UpdateSettings([]Setting) (bool, error)
+	GetSettings(key ...string) ([]*Setting, error)
 }
 
 type Dao struct {
@@ -45,6 +48,63 @@ type Dao struct {
 
 func NewDaoHandler() DaoHandler {
 	return &Dao{Db: nil}
+}
+
+func (d *Dao) UpdateSettings(settings []Setting) (bool, error) {
+
+	tx, _ := d.Db.Begin()
+
+	for _, s := range settings {
+
+		sqlStatement := `
+		INSERT INTO
+				settings
+		(key, value)
+		VALUES
+		($1, $2)
+		ON CONFLICT (key) DO
+		UPDATE
+		SET value = $2
+`
+
+		_, err := tx.Exec(sqlStatement, s.Key, s.Value)
+		if err != nil {
+			tx.Rollback()
+			return false, fmt.Errorf("error updating settings %w", err)
+		}
+	}
+	tx.Commit()
+
+	return true, nil
+}
+
+func (d *Dao) GetSettings(keys ...string) ([]*Setting, error) {
+
+	sqlStatement := `
+		SELECT
+				key, value
+		FROM
+				settings
+		WHERE
+				key = ANY($1)
+`
+	rows, err := d.Db.Query(sqlStatement, pq.Array(keys))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ret := []*Setting{}
+	for rows.Next() {
+		s := &Setting{}
+		err = rows.Scan(&s.Key, &s.Value)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, s)
+	}
+
+	return ret, nil
 }
 
 func (d *Dao) DoesUserHavePermission(userID, organizationID int64, permission string) (bool, error) {

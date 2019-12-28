@@ -75,3 +75,9 @@ organization_organization_user_role_xref (
     role_id BIGINT
 );
 
+CREATE TABLE IF NOT EXISTS
+settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
+
