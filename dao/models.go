@@ -1,5 +1,10 @@
 package dao
 
+import (
+	"encoding/base64"
+	"log"
+)
+
 const (
 	GcpAccount = "GCP"
 )
@@ -48,6 +53,18 @@ type Permission struct {
 type Setting struct {
 	Key   string
 	Value string
+}
+
+func (s *Setting) Base64EncodeValue(val []byte) {
+	s.Value = base64.StdEncoding.EncodeToString(val)
+}
+
+func (s *Setting) Base64DecodeValue() []byte {
+	ret, err := base64.StdEncoding.DecodeString(s.Value)
+	if err != nil {
+		log.Fatalf("cannot decode key %s: %w", s.Key, err)
+	}
+	return ret
 }
 
 func (o *Organization) EncodeMasterAccountCredential(cred string) {

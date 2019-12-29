@@ -14,47 +14,72 @@ import (
 	"github.com/coreos/go-oidc"
 	"github.com/genesis32/complianceweb/auth"
 	"github.com/genesis32/complianceweb/dao"
+	"github.com/genesis32/complianceweb/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
 )
 
 // Server contains all the server code
 type Server struct {
+	Config        *ServerConfiguration
 	Dao           dao.DaoHandler
 	SessionStore  sessions.Store
 	Authenticator *auth.Authenticator
 	router        *gin.Engine
 }
 
+func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
+	ret := &ServerConfiguration{}
+
+	{
+		dbSettings, err := daoHandler.GetSettings(CookieAuthenticationKeyConfigurationKey, CookieEncryptionKeyConfigurationKey)
+		if err != nil {
+			log.Fatalf("error getting settings: %w", err)
+		}
+		if len(dbSettings) == 0 {
+			authKey := utils.GenerateRandomBytes(32)
+			encKey := utils.GenerateRandomBytes(32)
+			authKeySetting := &dao.Setting{Key: CookieAuthenticationKeyConfigurationKey}
+			authKeySetting.Base64EncodeValue(authKey)
+			encKeySetting := &dao.Setting{Key: CookieEncryptionKeyConfigurationKey}
+			encKeySetting.Base64EncodeValue(encKey)
+			err := daoHandler.UpdateSettings(authKeySetting, encKeySetting)
+			if err != nil {
+				log.Fatalf("%v", err)
+			}
+			ret.CookieAuthenticationKey = authKey
+			ret.CookieAuthenticationKey = encKey
+		} else {
+			ret.CookieAuthenticationKey = dbSettings[CookieAuthenticationKeyConfigurationKey].Base64DecodeValue()
+			ret.CookieAuthenticationKey = dbSettings[CookieEncryptionKeyConfigurationKey].Base64DecodeValue()
+		}
+	}
+
+	return ret
+}
+
 // NewServer returns a new server
 func NewServer() *Server {
-	sessionStore := sessions.NewCookieStore([]byte("something-very-secret"))
-	sessionStore.Options.MaxAge = 0
 	dao := dao.NewDaoHandler()
+	dao.Open()
+	dao.TrySelect()
+
+	config := loadConfiguration(dao)
+
+	sessionStore := sessions.NewCookieStore(config.CookieAuthenticationKey, config.CookieEncryptionKey)
+	sessionStore.Options.MaxAge = 0
+
 	authenticator, err := auth.NewAuthenticator()
 	if err != nil {
 		panic(err)
 	}
-	return &Server{SessionStore: sessionStore, Dao: dao, Authenticator: authenticator}
+	return &Server{Config: config, SessionStore: sessionStore, Dao: dao, Authenticator: authenticator}
 }
 
 // Startup the server
 func (s *Server) Startup() error {
 	gob.Register(map[string]interface{}{})
 	gob.Register(&dao.OrganizationUser{})
-
-	dbOpenErr := s.Dao.Open()
-	if dbOpenErr != nil {
-		return dbOpenErr
-	}
-	s.Dao.TrySelect()
-
-	settings := []dao.Setting{{Key: "foo", Value: "bar0"}}
-	_, err := s.Dao.UpdateSettings(settings)
-	fmt.Printf("errors: %+v\n", err)
-
-	dbSettings, err := s.Dao.GetSettings("foo", "bar")
-	fmt.Printf("data: %#v errors: %+v]\n", dbSettings[0], err)
 
 	return nil
 }

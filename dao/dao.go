@@ -20,7 +20,7 @@ const (
 )
 
 type DaoHandler interface {
-	Open() error
+	Open()
 	Close() error
 	TrySelect()
 	GetNextUniqueId() int64
@@ -38,8 +38,8 @@ type DaoHandler interface {
 
 	DoesUserHavePermission(userID, organizationID int64, permission string) (bool, error)
 
-	UpdateSettings([]Setting) (bool, error)
-	GetSettings(key ...string) ([]*Setting, error)
+	UpdateSettings(settings ...*Setting) error
+	GetSettings(key ...string) (map[string]*Setting, error)
 }
 
 type Dao struct {
@@ -50,7 +50,7 @@ func NewDaoHandler() DaoHandler {
 	return &Dao{Db: nil}
 }
 
-func (d *Dao) UpdateSettings(settings []Setting) (bool, error) {
+func (d *Dao) UpdateSettings(settings ...*Setting) error {
 
 	tx, _ := d.Db.Begin()
 
@@ -66,19 +66,18 @@ func (d *Dao) UpdateSettings(settings []Setting) (bool, error) {
 		UPDATE
 		SET value = $2
 `
-
 		_, err := tx.Exec(sqlStatement, s.Key, s.Value)
 		if err != nil {
 			tx.Rollback()
-			return false, fmt.Errorf("error updating settings %w", err)
+			return fmt.Errorf("error updating settings %w", err)
 		}
 	}
 	tx.Commit()
 
-	return true, nil
+	return nil
 }
 
-func (d *Dao) GetSettings(keys ...string) ([]*Setting, error) {
+func (d *Dao) GetSettings(keys ...string) (map[string]*Setting, error) {
 
 	sqlStatement := `
 		SELECT
@@ -94,14 +93,14 @@ func (d *Dao) GetSettings(keys ...string) ([]*Setting, error) {
 	}
 	defer rows.Close()
 
-	ret := []*Setting{}
+	ret := make(map[string]*Setting)
 	for rows.Next() {
 		s := &Setting{}
 		err = rows.Scan(&s.Key, &s.Value)
 		if err != nil {
 			return nil, err
 		}
-		ret = append(ret, s)
+		ret[s.Key] = s
 	}
 
 	return ret, nil
@@ -231,7 +230,7 @@ ORDER BY ordernum DESC LIMIT 1;
 	return &credentials, nil
 }
 
-func (d *Dao) Open() error {
+func (d *Dao) Open() {
 	var err error
 
 	dbConnectionString := os.Getenv("PGSQL_CONNECTION_STRING")
@@ -242,7 +241,6 @@ func (d *Dao) Open() error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return nil
 }
 
 func (d *Dao) GetNextUniqueId() int64 {
@@ -446,7 +444,6 @@ func (d *Dao) TrySelect() {
 	if err != nil && err != sql.ErrNoRows {
 		log.Fatal(err)
 	}
-	log.Printf("row: %d", out)
 }
 
 func (d *Dao) Close() error {
