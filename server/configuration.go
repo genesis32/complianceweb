@@ -3,6 +3,7 @@ package server
 const (
 	CookieAuthenticationKeyConfigurationKey = "cookie.authentication.key"
 	CookieEncryptionKeyConfigurationKey     = "cookie.encryption.key"
+	BootstrapConfigurationKey               = "bootstrap.enabled"
 )
 
 type ServerConfiguration struct {

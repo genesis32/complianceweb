@@ -24,16 +24,19 @@ type DaoHandler interface {
 	Close() error
 	TrySelect()
 	GetNextUniqueId() int64
+
 	CreateOrganization(*Organization) error
 	AssignOrganizationToParent(parentId, orgID int64) (bool, error)
+	LoadOrganizationsForUser(userID int64) (map[int64]*Organization, error)
+	LoadOrganizationDetails(organizationID int64) (*Organization, error)
+
+	LoadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error)
+
 	CreateInviteForUser(organizationId int64, name string) (string, error)
 	LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, error)
 	LoadUserFromCredential(credential string) (*OrganizationUser, error)
 	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error)
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
-	LoadOrganizationsForUser(userID int64) (map[int64]*Organization, error)
-	LoadOrganizationDetails(organizationID int64) (*Organization, error)
-	LoadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error)
 	CanUserViewOrg(userID, organizationID int64) (bool, error)
 
 	DoesUserHavePermission(userID, organizationID int64, permission string) (bool, error)
@@ -101,6 +104,16 @@ func (d *Dao) GetSettings(keys ...string) (map[string]*Setting, error) {
 			return nil, err
 		}
 		ret[s.Key] = s
+	}
+
+	// if we have no results that's fine
+	if len(ret) == 0 {
+		return ret, nil
+	}
+
+	// if we have incomplete results (we have some but not others) error
+	if len(ret) != len(keys) {
+		return nil, errors.New("all keys should exist in the settings database")
 	}
 
 	return ret, nil
@@ -410,7 +423,7 @@ func (d *Dao) CreateOrganization(org *Organization) error {
 	`
 	_, err := d.Db.Exec(sqlStatement, org.ID, org.DisplayName, GcpAccount, org.masterAccountCredential)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	return nil
 }

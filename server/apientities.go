@@ -1,5 +1,11 @@
 package server
 
+type BootstrapRequest struct {
+}
+
+type BootstrapResponse struct {
+}
+
 type UserOrganizationResponse struct {
 	ID       int64 `json:",string,omitempty"`
 	Name     string
