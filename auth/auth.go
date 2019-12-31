@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"os"
 	"regexp"
 	"strings"
 
@@ -52,35 +51,25 @@ func (a *Authenticator) ValidateAuthorizationHeader(headerValue string) (OpenIDC
 	return profile, nil
 }
 
-func NewAuthenticator() (*Authenticator, error) {
+func NewAuthenticator(issuerBaseUrl, auth0ClientID, auth0ClientSecret string) (*Authenticator, error) {
 	ctx := context.Background()
 
-	provider, err := oidc.NewProvider(ctx, "https://***REMOVED***.auth0.com/")
+	provider, err := oidc.NewProvider(ctx, issuerBaseUrl)
 	if err != nil {
 		log.Printf("failed to get provider: %v", err)
 		return nil, err
 	}
 
-	clientId := os.Getenv("AUTH0_CLIENT_ID")
-	if len(clientId) == 0 {
-		panic("AUTH0_CLIENT_ID undefined")
-	}
-
-	clientSecret := os.Getenv("AUTH0_CLIENT_SECRET")
-	if len(clientSecret) == 0 {
-		panic("AUTH0_CLIENT_SECRET undefined")
-	}
-
 	conf := oauth2.Config{
-		ClientID:     clientId,
-		ClientSecret: clientSecret,
+		ClientID:     auth0ClientID,
+		ClientSecret: auth0ClientSecret,
 		RedirectURL:  "http://localhost:3000/webapp/callback",
 		Endpoint:     provider.Endpoint(),
 		Scopes:       []string{oidc.ScopeOpenID, "profile"},
 	}
 
 	oidcConfig := &oidc.Config{
-		ClientID:             "***REMOVED***",
+		ClientID:             auth0ClientID,
 		SupportedSigningAlgs: []string{"RS256"},
 	}
 

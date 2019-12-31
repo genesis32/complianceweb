@@ -39,15 +39,30 @@ func initCookieKeys(daoHandler dao.DaoHandler) ([]byte, []byte) {
 func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
 	ret := &ServerConfiguration{}
 
-	dbSettings, err := daoHandler.GetSettings(CookieAuthenticationKeyConfigurationKey, CookieEncryptionKeyConfigurationKey)
-	if err != nil {
-		log.Fatalf("error getting settings: %v", err)
+	{
+		dbSettings, err := daoHandler.GetSettings(CookieAuthenticationKeyConfigurationKey, CookieEncryptionKeyConfigurationKey)
+		if err != nil {
+			log.Fatalf("error getting settings: %v", err)
+		}
+		if len(dbSettings) == 0 {
+			ret.CookieAuthenticationKey, ret.CookieEncryptionKey = initCookieKeys(daoHandler)
+		} else {
+			ret.CookieAuthenticationKey = dbSettings[CookieAuthenticationKeyConfigurationKey].Base64DecodeValue()
+			ret.CookieEncryptionKey = dbSettings[CookieEncryptionKeyConfigurationKey].Base64DecodeValue()
+		}
 	}
-	if len(dbSettings) == 0 {
-		ret.CookieAuthenticationKey, ret.CookieEncryptionKey = initCookieKeys(daoHandler)
-	} else {
-		ret.CookieAuthenticationKey = dbSettings[CookieAuthenticationKeyConfigurationKey].Base64DecodeValue()
-		ret.CookieEncryptionKey = dbSettings[CookieEncryptionKeyConfigurationKey].Base64DecodeValue()
+
+	{
+		dbSettings, err := daoHandler.GetSettings(OIDCIssuerConfigurationKey, Auth0ClientIdConfigurationKey, Auth0ClientSecretConfigurationKey)
+		if err != nil {
+			log.Fatalf("error getting settings: %v", err)
+		}
+		if len(dbSettings) != 3 {
+			panic("parameters not loaded. Do all oidc configuration parameters exist in the db?")
+		}
+		ret.OIDCIssuer = dbSettings[OIDCIssuerConfigurationKey].Value
+		ret.Auth0ClientID = dbSettings[Auth0ClientIdConfigurationKey].Value
+		ret.Auth0ClientSecret = dbSettings[Auth0ClientSecretConfigurationKey].Value
 	}
 
 	return ret
@@ -65,7 +80,7 @@ func NewServer() *Server {
 	sessionStore := sessions.NewCookieStore(config.CookieAuthenticationKey, config.CookieEncryptionKey)
 	sessionStore.Options.MaxAge = 0
 
-	authenticator, err := auth.NewAuthenticator()
+	authenticator, err := auth.NewAuthenticator(config.OIDCIssuer, config.Auth0ClientID, config.Auth0ClientSecret)
 	if err != nil {
 		log.Fatal(err)
 	}
