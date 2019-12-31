@@ -41,19 +41,6 @@ organization_user
 );
 
 CREATE TABLE IF NOT EXISTS
-admin_user 
-(
-  id BIGINT PRIMARY KEY,
-  display_name TEXT,
-  idp_type TEXT,
-  idp_credential_value TEXT UNIQUE,
-  invite_code TEXT,
-  current_state INT,
-  last_login_timestamp TIMESTAMP,
-  created_timestamp TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS
 organization_organization_user_role_xref (
     organization_id BIGINT,
     organization_user_id BIGINT,

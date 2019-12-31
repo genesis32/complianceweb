@@ -13,12 +13,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const (
-	ServiceAccountCreatePermission = "serviceaccount.create.execute"
-	UserCreatePermission           = "user.create.execute"
-	OrganizationCreatePermission   = "organization.create.execute"
-)
-
 type DaoHandler interface {
 	Open()
 	Close() error
@@ -40,6 +34,7 @@ type DaoHandler interface {
 	CanUserViewOrg(userID, organizationID int64) (bool, error)
 
 	DoesUserHavePermission(userID, organizationID int64, permission string) (bool, error)
+	DoesUserHaveSystemPermission(userID int64, permission string) (bool, error)
 
 	UpdateSettings(settings ...*Setting) error
 	GetSettings(key ...string) (map[string]*Setting, error)
@@ -117,6 +112,36 @@ func (d *Dao) GetSettings(keys ...string) (map[string]*Setting, error) {
 	}
 
 	return ret, nil
+}
+
+func (d *Dao) DoesUserHaveSystemPermission(userID int64, permission string) (bool, error) {
+	// TODO: Verify that this has permission starts with system.
+	sqlStatement := `
+				SELECT
+						count(1)
+				FROM
+					organization_organization_user_role_xref 
+				WHERE 
+						organization_id IS NULL AND 
+						organization_user_id = $1 AND 
+						role_id IN 
+						(SELECT r.id FROM role r, permission p, role_permission_xref rpx WHERE
+				p.id = rpx.permission_id AND r.id = rpx.role_id AND p.value = $2)
+`
+	var count int
+	row := d.Db.QueryRow(sqlStatement, userID, permission)
+
+	var err error
+	err = row.Scan(&count)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("error checking permissions for user: %w", err)
+	}
+
+	return count > 0, nil
 }
 
 func (d *Dao) DoesUserHavePermission(userID, organizationID int64, permission string) (bool, error) {
