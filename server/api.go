@@ -24,6 +24,12 @@ func contains(n *UserOrganizationResponse, children []*UserOrganizationResponse)
 
 func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 
+	bootstrapKey := daoHandler.GetSettings(BootstrapConfigurationKey)
+	if len(bootstrapKey) == 0 || bootstrapKey[BootstrapConfigurationKey].Value != "true" {
+		c.String(http.StatusMethodNotAllowed, fmt.Sprintf("not allowed"))
+		return
+	}
+
 	var bootstrapRequest BootstrapRequest
 	if err := c.ShouldBind(&bootstrapRequest); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("bootstrap binding: %s", err.Error()))
@@ -31,6 +37,14 @@ func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.Dao
 	}
 
 	var response BootstrapResponse
+	userId, inviteCode := daoHandler.CreateInviteForUser(0, bootstrapRequest.SystemAdminName)
+
+	daoHandler.AddRolesToUser(0, userId, []string{"System Admin"})
+
+	href := fmt.Sprintf("http://localhost:3000/webapp/login?inviteCode=%v", inviteCode)
+	response.InviteCode = inviteCode
+	response.Href = href
+
 	c.JSON(200, response)
 }
 
@@ -142,8 +156,9 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 		return
 	}
 
-	inviteCode, _ := daoHandler.CreateInviteForUser(addRequest.ParentOrganizationID, addRequest.Name)
-	// TODO: Handle error
+	userId, inviteCode := daoHandler.CreateInviteForUser(addRequest.ParentOrganizationID, addRequest.Name)
+
+	daoHandler.AddRolesToUser(addRequest.ParentOrganizationID, userId, []string{"Organization Admin"})
 
 	href := fmt.Sprintf("http://localhost:3000/webapp/login?inviteCode=%v", inviteCode)
 	r := &AddUserToOrganizationResponse{InviteCode: inviteCode, Href: href}

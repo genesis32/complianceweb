@@ -1,4 +1,3 @@
 # Create Organization
 # Assign roles to gcp service account
-# Make a different user "admin" instead of "organization" admin can create organizations with no parent and send invites with any parent org 
   

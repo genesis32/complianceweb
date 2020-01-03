@@ -26,7 +26,7 @@ type DaoHandler interface {
 
 	LoadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error)
 
-	CreateInviteForUser(organizationId int64, name string) (string, error)
+	CreateInviteForUser(organizationId int64, name string) (int64, int64)
 	LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, error)
 	LoadUserFromCredential(credential string) (*OrganizationUser, error)
 	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error)
@@ -37,7 +37,9 @@ type DaoHandler interface {
 	DoesUserHaveSystemPermission(userID int64, permission string) (bool, error)
 
 	UpdateSettings(settings ...*Setting) error
-	GetSettings(key ...string) (map[string]*Setting, error)
+	GetSettings(key ...string) map[string]*Setting
+
+	AddRolesToUser(userID, organizationID int64, roleNames []string) bool
 }
 
 type Dao struct {
@@ -46,6 +48,27 @@ type Dao struct {
 
 func NewDaoHandler() DaoHandler {
 	return &Dao{Db: nil}
+}
+
+func (d *Dao) AddRolesToUser(organizationID, userID int64, roleNames []string) bool {
+	tx, _ := d.Db.Begin()
+
+	for i := range roleNames {
+		sqlStatement := `
+		INSERT INTO
+				organization_organization_user_role_xref
+		(organization_id, organization_user_id, role_id)
+		VALUES
+				(NULLIF($1::bigint,0), $2, (SELECT id FROM role WHERE display_name = $3))
+`
+		_, err := tx.Exec(sqlStatement, organizationID, userID, roleNames[i])
+		if err != nil {
+			tx.Rollback()
+			log.Fatal(err)
+		}
+	}
+	tx.Commit()
+	return true
 }
 
 func (d *Dao) UpdateSettings(settings ...*Setting) error {
@@ -75,7 +98,7 @@ func (d *Dao) UpdateSettings(settings ...*Setting) error {
 	return nil
 }
 
-func (d *Dao) GetSettings(keys ...string) (map[string]*Setting, error) {
+func (d *Dao) GetSettings(keys ...string) map[string]*Setting {
 
 	sqlStatement := `
 		SELECT
@@ -87,7 +110,7 @@ func (d *Dao) GetSettings(keys ...string) (map[string]*Setting, error) {
 `
 	rows, err := d.Db.Query(sqlStatement, pq.Array(keys))
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 	defer rows.Close()
 
@@ -96,22 +119,12 @@ func (d *Dao) GetSettings(keys ...string) (map[string]*Setting, error) {
 		s := &Setting{}
 		err = rows.Scan(&s.Key, &s.Value)
 		if err != nil {
-			return nil, err
+			log.Fatal(err)
 		}
 		ret[s.Key] = s
 	}
 
-	// if we have no results that's fine
-	if len(ret) == 0 {
-		return ret, nil
-	}
-
-	// if we have incomplete results (we have some but not others) error
-	if len(ret) != len(keys) {
-		return nil, errors.New("all keys should exist in the settings database")
-	}
-
-	return ret, nil
+	return ret
 }
 
 func (d *Dao) DoesUserHaveSystemPermission(userID int64, permission string) (bool, error) {
@@ -152,15 +165,15 @@ func (d *Dao) DoesUserHavePermission(userID, organizationID int64, permission st
 				count(1)
 		FROM
 				organization_organization_user_role_xref 
-		WHERE TRUE
-				AND organization_id IN
+		WHERE 
+				(organization_id IN
 				(SELECT id FROM organization WHERE path <@ 
 				  (SELECT path FROM organization WHERE id IN 
 					  (SELECT organization_id FROM organization_organization_user_xref 
 						WHERE organization_user_id=$1)) AND path @> (SELECT path FROM organization WHERE id=$2))
 				AND role_id IN 
 				(SELECT r.id FROM role r, permission p, role_permission_xref rpx WHERE
-				p.id = rpx.permission_id AND r.id = rpx.role_id AND p.value = $3)
+				p.id = rpx.permission_id AND r.id = rpx.role_id AND p.value = $3))
 `
 	var count int
 	row := d.Db.QueryRow(sqlStatement, userID, organizationID, permission)
@@ -416,10 +429,10 @@ func (d *Dao) LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, erro
 	return &orgUser, nil
 }
 
-func (d *Dao) CreateInviteForUser(organizationId int64, name string) (string, error) {
+func (d *Dao) CreateInviteForUser(organizationId int64, name string) (int64, int64) {
 	var err error
-	inviteCode := fmt.Sprintf("%d", d.GetNextUniqueId())
-	orgUserID := fmt.Sprintf("%d", d.GetNextUniqueId())
+	orgUserID := d.GetNextUniqueId()
+	inviteCode := d.GetNextUniqueId()
 
 	sqlStatement := `
 		INSERT INTO organization_user (id, display_name, invite_code, created_timestamp, current_state)
@@ -427,26 +440,28 @@ func (d *Dao) CreateInviteForUser(organizationId int64, name string) (string, er
 	`
 	_, err = d.Db.Exec(sqlStatement, orgUserID, name, inviteCode, "NOW()", 0)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	sqlRefStatement := `
-		INSERT INTO organization_organization_user_xref (organization_id, organization_user_id) VALUES ($1, $2);
+	if organizationId != 0 {
+		sqlRefStatement := `
+INSERT INTO organization_organization_user_xref (organization_id, organization_user_id) VALUES ($1, $2);
 	`
-	_, err = d.Db.Exec(sqlRefStatement, organizationId, orgUserID)
-	if err != nil {
-		panic(err)
+		_, err = d.Db.Exec(sqlRefStatement, organizationId, orgUserID)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	return inviteCode, nil
+	return orgUserID, inviteCode
 }
 
 func (d *Dao) CreateOrganization(org *Organization) error {
 	sqlStatement := `
-	INSERT INTO organization (id, display_name, master_account_type, master_account_credential) 
-	VALUES ($1, $2, $3, $4)
+	INSERT INTO organization (id, display_name, master_account_type, master_account_credential, path) 
+	VALUES ($1, $2, $3, $4, $5)
 	`
-	_, err := d.Db.Exec(sqlStatement, org.ID, org.DisplayName, GcpAccount, org.masterAccountCredential)
+	_, err := d.Db.Exec(sqlStatement, org.ID, org.DisplayName, GcpAccount, org.masterAccountCredential, fmt.Sprintf("%d", org.ID))
 	if err != nil {
 		return err
 	}

@@ -1,9 +1,12 @@
 package server
 
 type BootstrapRequest struct {
+	SystemAdminName string
 }
 
 type BootstrapResponse struct {
+	InviteCode int64 `json:",string,omitempty"`
+	Href       string
 }
 
 type UserOrganizationResponse struct {
@@ -38,10 +41,11 @@ type OrganizationCreateResponse struct {
 type AddUserToOrganizationRequest struct {
 	Name                 string
 	ParentOrganizationID int64 `json:",string,omitempty"`
+	Roles                []string
 }
 
 type AddUserToOrganizationResponse struct {
-	InviteCode string
+	InviteCode int64 `json:",string,omitempty"`
 	Href       string
 }
 

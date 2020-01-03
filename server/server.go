@@ -40,10 +40,7 @@ func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
 	ret := &ServerConfiguration{}
 
 	{
-		dbSettings, err := daoHandler.GetSettings(CookieAuthenticationKeyConfigurationKey, CookieEncryptionKeyConfigurationKey)
-		if err != nil {
-			log.Fatalf("error getting settings: %v", err)
-		}
+		dbSettings := daoHandler.GetSettings(CookieAuthenticationKeyConfigurationKey, CookieEncryptionKeyConfigurationKey)
 		if len(dbSettings) == 0 {
 			ret.CookieAuthenticationKey, ret.CookieEncryptionKey = initCookieKeys(daoHandler)
 		} else {
@@ -53,10 +50,7 @@ func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
 	}
 
 	{
-		dbSettings, err := daoHandler.GetSettings(OIDCIssuerConfigurationKey, Auth0ClientIdConfigurationKey, Auth0ClientSecretConfigurationKey)
-		if err != nil {
-			log.Fatalf("error getting settings: %v", err)
-		}
+		dbSettings := daoHandler.GetSettings(OIDCIssuerConfigurationKey, Auth0ClientIdConfigurationKey, Auth0ClientSecretConfigurationKey)
 		if len(dbSettings) != 3 {
 			panic("parameters not loaded. Do all oidc configuration parameters exist in the db?")
 		}
@@ -147,7 +141,12 @@ func (s *Server) Serve() {
 
 	s.router.LoadHTMLGlob("templates/html/*.tmpl")
 
-	webapp := s.router.Group("webapp")
+	system := s.router.Group("/system")
+	{
+		system.POST("/bootstrap", s.registerWebApp(BootstrapApiPostHandler))
+	}
+
+	webapp := s.router.Group("/webapp")
 	{
 		webapp.GET("/", s.registerWebApp(IndexHandler))
 		webapp.GET("/invite/:inviteCode", s.registerWebApp(InviteHandler))
@@ -158,7 +157,6 @@ func (s *Server) Serve() {
 	apiRoutes := s.router.Group("/api")
 	apiRoutes.Use(validOIDCTokenRequired(s))
 	{
-		apiRoutes.POST("/bootstrap", s.registerWebApp(BootstrapApiPostHandler))
 
 		apiRoutes.POST("/organizations", s.registerWebApp(OrganizationApiPostHandler))
 		apiRoutes.GET("/organizations", s.registerWebApp(OrganizationApiGetHandler))
