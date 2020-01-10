@@ -4,14 +4,27 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
+
+	"github.com/genesis32/complianceweb/utils"
 
 	"github.com/genesis32/complianceweb/auth"
 	"github.com/genesis32/complianceweb/dao"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
 )
+
+func createInviteLink(baseUrl string, inviteCode int64, daoHandler dao.DaoHandler) string {
+	var href string
+	if baseUrl == "" {
+		configKeys := daoHandler.GetSettings(SystemBaseUrlConfigurationKey)
+		href = fmt.Sprintf("%s/webapp/login?inviteCode=%v", configKeys[SystemBaseUrlConfigurationKey].Value, inviteCode)
+		return href
+	} else {
+		href = fmt.Sprintf("%s/webapp/login?inviteCode=%v", baseUrl, inviteCode)
+	}
+	return href
+}
 
 func contains(n *UserOrganizationResponse, children []*UserOrganizationResponse) bool {
 	for _, ch := range children {
@@ -24,8 +37,8 @@ func contains(n *UserOrganizationResponse, children []*UserOrganizationResponse)
 
 func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 
-	bootstrapKey := daoHandler.GetSettings(BootstrapConfigurationKey)
-	if len(bootstrapKey) == 0 || bootstrapKey[BootstrapConfigurationKey].Value != "true" {
+	configKeys := daoHandler.GetSettings(BootstrapConfigurationKey, SystemBaseUrlConfigurationKey)
+	if len(configKeys) == 0 || configKeys[BootstrapConfigurationKey].Value != "true" {
 		c.String(http.StatusMethodNotAllowed, fmt.Sprintf("not allowed"))
 		return
 	}
@@ -41,9 +54,8 @@ func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.Dao
 
 	daoHandler.AddRolesToUser(0, userId, []string{"System Admin"})
 
-	href := fmt.Sprintf("http://localhost:3000/webapp/login?inviteCode=%v", inviteCode)
 	response.InviteCode = inviteCode
-	response.Href = href
+	response.Href = createInviteLink(configKeys[SystemBaseUrlConfigurationKey].Value, inviteCode, daoHandler)
 
 	c.JSON(200, response)
 }
@@ -99,7 +111,7 @@ func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandle
 	t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
 
 	organizationIdStr := c.Param("organizationID")
-	organizationId, _ := strconv.ParseInt(organizationIdStr, 10, 64)
+	organizationId, _ := utils.StringToInt64(organizationIdStr)
 
 	canView, _ := daoHandler.CanUserViewOrg(t.ID, organizationId)
 	if !canView {
@@ -130,12 +142,12 @@ func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.D
 		pathPieces := strings.Split(organizations[k].Path, ".")
 		for i := range pathPieces {
 			if i > 0 {
-				parentID, _ := strconv.ParseInt(pathPieces[i-1], 10, 64)
+				parentID, _ := utils.StringToInt64(pathPieces[i-1])
 				// if we can't see the parent just disregard even mapping it..
 				if orgTreeRep[parentID] == nil {
 					continue
 				}
-				pathID, _ := strconv.ParseInt(pathPieces[i], 10, 64)
+				pathID, _ := utils.StringToInt64(pathPieces[i])
 				if !contains(orgTreeRep[pathID], orgTreeRep[parentID].Children) {
 					orgTreeRep[parentID].Children = append(orgTreeRep[parentID].Children, orgTreeRep[pathID])
 				}
@@ -160,7 +172,7 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 
 	daoHandler.AddRolesToUser(addRequest.ParentOrganizationID, userId, []string{"Organization Admin"})
 
-	href := fmt.Sprintf("http://localhost:3000/webapp/login?inviteCode=%v", inviteCode)
+	href := createInviteLink("", inviteCode, daoHandler)
 	r := &AddUserToOrganizationResponse{InviteCode: inviteCode, Href: href}
 	c.JSON(200, r)
 }

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/genesis32/complianceweb/utils"
+
 	"github.com/coreos/go-oidc"
 	"github.com/genesis32/complianceweb/dao"
 	"github.com/gin-gonic/gin"
@@ -23,7 +25,8 @@ func IndexHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c 
 
 func InviteHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 	if c.Request.Method == "GET" {
-		inviteCode := c.Param("inviteCode")
+		inviteCodeStr := c.Param("inviteCode")
+		inviteCode, _ := utils.StringToInt64(inviteCodeStr)
 		theUser, err := daoHandler.LoadUserFromInviteCode(inviteCode)
 		if err != nil {
 			c.String(http.StatusBadRequest, fmt.Sprintf("error getting invite code: %s", err.Error()))
@@ -33,7 +36,8 @@ func InviteHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c
 			c.String(http.StatusBadRequest, fmt.Sprintf("invite code not valid"))
 			return
 		}
-		c.Redirect(302, fmt.Sprintf("/webapp/login?inviteCode=%s", inviteCode))
+		href := createInviteLink("", inviteCode, daoHandler)
+		c.Redirect(302, href)
 	}
 }
 

@@ -51,7 +51,7 @@ func (a *Authenticator) ValidateAuthorizationHeader(headerValue string) (OpenIDC
 	return profile, nil
 }
 
-func NewAuthenticator(issuerBaseUrl, auth0ClientID, auth0ClientSecret string) (*Authenticator, error) {
+func NewAuthenticator(callbackUrl, issuerBaseUrl, auth0ClientID, auth0ClientSecret string) (*Authenticator, error) {
 	ctx := context.Background()
 
 	provider, err := oidc.NewProvider(ctx, issuerBaseUrl)
@@ -63,7 +63,7 @@ func NewAuthenticator(issuerBaseUrl, auth0ClientID, auth0ClientSecret string) (*
 	conf := oauth2.Config{
 		ClientID:     auth0ClientID,
 		ClientSecret: auth0ClientSecret,
-		RedirectURL:  "http://localhost:3000/webapp/callback",
+		RedirectURL:  callbackUrl,
 		Endpoint:     provider.Endpoint(),
 		Scopes:       []string{oidc.ScopeOpenID, "profile"},
 	}

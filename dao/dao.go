@@ -27,7 +27,7 @@ type DaoHandler interface {
 	LoadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error)
 
 	CreateInviteForUser(organizationId int64, name string) (int64, int64)
-	LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, error)
+	LoadUserFromInviteCode(inviteCode int64) (*OrganizationUser, error)
 	LoadUserFromCredential(credential string) (*OrganizationUser, error)
 	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error)
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
@@ -39,7 +39,7 @@ type DaoHandler interface {
 	UpdateSettings(settings ...*Setting) error
 	GetSettings(key ...string) map[string]*Setting
 
-	AddRolesToUser(userID, organizationID int64, roleNames []string) bool
+	AddRolesToUser(userID, organizationID int64, roleNames []string)
 }
 
 type Dao struct {
@@ -50,7 +50,7 @@ func NewDaoHandler() DaoHandler {
 	return &Dao{Db: nil}
 }
 
-func (d *Dao) AddRolesToUser(organizationID, userID int64, roleNames []string) bool {
+func (d *Dao) AddRolesToUser(organizationID, userID int64, roleNames []string) {
 	tx, _ := d.Db.Begin()
 
 	for i := range roleNames {
@@ -68,7 +68,6 @@ func (d *Dao) AddRolesToUser(organizationID, userID int64, roleNames []string) b
 		}
 	}
 	tx.Commit()
-	return true
 }
 
 func (d *Dao) UpdateSettings(settings ...*Setting) error {
@@ -413,7 +412,7 @@ func (d *Dao) LoadUserFromCredential(credential string) (*OrganizationUser, erro
 
 	return &orgUser, nil
 }
-func (d *Dao) LoadUserFromInviteCode(inviteCode string) (*OrganizationUser, error) {
+func (d *Dao) LoadUserFromInviteCode(inviteCode int64) (*OrganizationUser, error) {
 	sqlStatement := `SELECT id, display_name FROM organization_user WHERE invite_code=$1 AND current_state=0`
 	var orgUser OrganizationUser
 

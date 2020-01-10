@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/gob"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -50,13 +51,14 @@ func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
 	}
 
 	{
-		dbSettings := daoHandler.GetSettings(OIDCIssuerConfigurationKey, Auth0ClientIdConfigurationKey, Auth0ClientSecretConfigurationKey)
-		if len(dbSettings) != 3 {
+		dbSettings := daoHandler.GetSettings(OIDCIssuerConfigurationKey, Auth0ClientIdConfigurationKey, Auth0ClientSecretConfigurationKey, SystemBaseUrlConfigurationKey)
+		if len(dbSettings) != 4 {
 			panic("parameters not loaded. Do all oidc configuration parameters exist in the db?")
 		}
 		ret.OIDCIssuer = dbSettings[OIDCIssuerConfigurationKey].Value
 		ret.Auth0ClientID = dbSettings[Auth0ClientIdConfigurationKey].Value
 		ret.Auth0ClientSecret = dbSettings[Auth0ClientSecretConfigurationKey].Value
+		ret.SystemBaseUrl = dbSettings[SystemBaseUrlConfigurationKey].Value
 	}
 
 	return ret
@@ -74,7 +76,9 @@ func NewServer() *Server {
 	sessionStore := sessions.NewCookieStore(config.CookieAuthenticationKey, config.CookieEncryptionKey)
 	sessionStore.Options.MaxAge = 0
 
-	authenticator, err := auth.NewAuthenticator(config.OIDCIssuer, config.Auth0ClientID, config.Auth0ClientSecret)
+	callbackUrl := fmt.Sprintf("%s/webapp/callback", config.SystemBaseUrl)
+
+	authenticator, err := auth.NewAuthenticator(callbackUrl, config.OIDCIssuer, config.Auth0ClientID, config.Auth0ClientSecret)
 	if err != nil {
 		log.Fatal(err)
 	}
