@@ -4,7 +4,7 @@ const (
 	BootstrapConfigurationKey               = "bootstrap.enabled"
 	CookieAuthenticationKeyConfigurationKey = "cookie.authentication.key"
 	CookieEncryptionKeyConfigurationKey     = "cookie.encryption.key"
-	OIDCIssuerConfigurationKey              = "oidc.issuer.baseurl"
+	OIDCIssuerBaseUrlConfigurationKey       = "oidc.issuer.baseurl"
 	Auth0ClientIdConfigurationKey           = "oidc.auth0.clientid"
 	Auth0ClientSecretConfigurationKey       = "oidc.auth0.clientsecret"
 	SystemBaseUrlConfigurationKey           = "system.baseurl"

@@ -55,11 +55,11 @@ func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
 	}
 
 	{
-		dbSettings := daoHandler.GetSettings(OIDCIssuerConfigurationKey, Auth0ClientIdConfigurationKey, Auth0ClientSecretConfigurationKey, SystemBaseUrlConfigurationKey)
+		dbSettings := daoHandler.GetSettings(OIDCIssuerBaseUrlConfigurationKey, Auth0ClientIdConfigurationKey, Auth0ClientSecretConfigurationKey, SystemBaseUrlConfigurationKey)
 		if len(dbSettings) != 4 {
 			panic("parameters not loaded. Do all oidc configuration parameters exist in the db?")
 		}
-		ret.OIDCIssuer = dbSettings[OIDCIssuerConfigurationKey].Value
+		ret.OIDCIssuer = dbSettings[OIDCIssuerBaseUrlConfigurationKey].Value
 		ret.Auth0ClientID = dbSettings[Auth0ClientIdConfigurationKey].Value
 		ret.Auth0ClientSecret = dbSettings[Auth0ClientSecretConfigurationKey].Value
 		ret.SystemBaseUrl = dbSettings[SystemBaseUrlConfigurationKey].Value
@@ -123,7 +123,7 @@ func (s *Server) registerResourceApi(resourceAction resources.OrganizationResour
 		userInfo := s.Dao.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
 
 		organizationID, _ := utils.StringToInt64(c.Param("organizationID"))
-		hasPermission, _ := s.Dao.DoesUserHavePermission(userInfo.ID, organizationID, resourceAction.PermissionName())
+		hasPermission := s.Dao.DoesUserHavePermission(userInfo.ID, organizationID, resourceAction.PermissionName())
 
 		// @gmail.com as orgs
 		log.Printf("resource organizationid: %d required permission: %s user: %d", organizationID, resourceAction.PermissionName(), userInfo.ID)

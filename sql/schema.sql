@@ -80,7 +80,7 @@ settings (
 );
 
 CREATE TABLE IF NOT EXISTS
-registered_resource_actions (
+registered_resources (
     id BIGINT PRIMARY KEY,
     display_name TEXT,
     internal_key TEXT,

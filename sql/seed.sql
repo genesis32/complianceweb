@@ -2,6 +2,7 @@ INSERT INTO permission VALUES (1, 'service account create', 'serviceaccount.crea
 INSERT INTO permission VALUES (2, 'user create', 'user.create.execute');
 INSERT INTO permission VALUES (3, 'organization create', 'organization.create.execute');
 INSERT INTO permission VALUES (4, 'system update', 'system.update.execute');
+INSERT INTO permission VALUES (6, 'system organization create', 'system.organization.create.execute')
 
 INSERT INTO role VALUES (1, 'Service Account Creator');
 INSERT INTO role_permission_xref VALUES (1,1);
@@ -13,6 +14,8 @@ INSERT INTO role_permission_xref VALUES (2,3);
 
 INSERT INTO role VALUES (3, 'System Admin');
 INSERT INTO role_permission_xref VALUES (3,4);
+INSERT INTO role_permission_xref VALUES (3,6);
+
 
 -- GCP Service account roles and permissions
 INSERT INTO permission VALUES (5, 'gcp service account create', 'gcp.serviceaccount.write.execute');
@@ -21,3 +24,11 @@ INSERT INTO role VALUES (4, 'GCP Administrator');
 INSERT INTO role_permission_xref VALUES (5,4);
 
 INSERT INTO registered_resources VALUES (1, 'GCP Service Accounts', 'gcp.serviceaccount', true);
+
+INSERT INTO settings (key, value) VALUES ('bootstrap.enabled', 'true');
+INSERT INTO settings (key, value) VALUES ('oidc.issuer.baseurl', 'https://***REMOVED***.auth0.com/');
+INSERT INTO settings (key, value) VALUES ('oidc.auth0.clientid', '***REMOVED***');
+INSERT INTO settings (key, value) VALUES ('oidc.auth0.clientsecret', '***REMOVED***');
+INSERT INTO settings (key, value) VALUES ('system.baseurl', 'http://localhost:3000');
+
+

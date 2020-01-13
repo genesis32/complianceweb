@@ -34,8 +34,8 @@ type DaoHandler interface {
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
 	CanUserViewOrg(userID, organizationID int64) (bool, error)
 
-	DoesUserHavePermission(userID, organizationID int64, permission string) (bool, error)
-	DoesUserHaveSystemPermission(userID int64, permission string) (bool, error)
+	DoesUserHavePermission(userID, organizationID int64, permission string) bool
+	DoesUserHaveSystemPermission(userID int64, permission string) bool
 
 	UpdateSettings(settings ...*Setting) error
 	GetSettings(key ...string) map[string]*Setting
@@ -144,7 +144,7 @@ func (d *Dao) GetSettings(keys ...string) map[string]*Setting {
 	return ret
 }
 
-func (d *Dao) DoesUserHaveSystemPermission(userID int64, permission string) (bool, error) {
+func (d *Dao) DoesUserHaveSystemPermission(userID int64, permission string) bool {
 	// TODO: Verify that this has permission starts with system.
 	sqlStatement := `
 				SELECT
@@ -164,17 +164,17 @@ func (d *Dao) DoesUserHaveSystemPermission(userID int64, permission string) (boo
 	var err error
 	err = row.Scan(&count)
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+		return false
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("error checking permissions for user: %w", err)
+		log.Fatal(err)
 	}
 
-	return count > 0, nil
+	return count > 0
 }
 
-func (d *Dao) DoesUserHavePermission(userID, organizationID int64, permission string) (bool, error) {
+func (d *Dao) DoesUserHavePermission(userID, organizationID int64, permission string) bool {
 	// Test if any of the orgs between the root of the user and the org they are acting on (including
 	// themselves contain the necessary role w/ permission.
 	sqlStatement := `
@@ -198,14 +198,14 @@ func (d *Dao) DoesUserHavePermission(userID, organizationID int64, permission st
 	var err error
 	err = row.Scan(&count)
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+		return false
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("error checking permissions for user: %w", err)
+		log.Fatal(err)
 	}
 
-	return count > 0, nil
+	return count > 0
 }
 
 func (d *Dao) AssignOrganizationToParent(parentID int64, orgID int64) bool {

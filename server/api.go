@@ -72,13 +72,13 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 
 	// TODO: Add in test that user has visibility over a ParentOrganizationID
 	if createRequest.ParentOrganizationID != 0 {
-		hasPermission, _ := daoHandler.DoesUserHavePermission(t.ID, createRequest.ParentOrganizationID, OrganizationCreatePermission)
+		hasPermission := daoHandler.DoesUserHavePermission(t.ID, createRequest.ParentOrganizationID, OrganizationCreatePermission)
 		if !hasPermission {
 			c.String(http.StatusUnauthorized, "not authorized")
 			return
 		}
 	} else if createRequest.ParentOrganizationID == 0 {
-		hasPermission, _ := daoHandler.DoesUserHaveSystemPermission(t.ID, SystemOrganizationCreatePermission)
+		hasPermission := daoHandler.DoesUserHaveSystemPermission(t.ID, SystemOrganizationCreatePermission)
 		if !hasPermission {
 			c.String(http.StatusUnauthorized, "not authorized")
 			return
