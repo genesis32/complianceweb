@@ -15,7 +15,7 @@ INSERT INTO role VALUES (3, 'System Admin');
 INSERT INTO role_permission_xref VALUES (3,4);
 
 -- GCP Service account roles and permissions
-INSERT INTO permission VALUES (5, 'gcp service account create', 'gcp.serviceaccount.create.execute');
+INSERT INTO permission VALUES (5, 'gcp service account create', 'gcp.serviceaccount.write.execute');
 
 INSERT INTO role VALUES (4, 'GCP Administrator');
 INSERT INTO role_permission_xref VALUES (5,4);

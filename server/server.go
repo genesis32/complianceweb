@@ -15,21 +15,6 @@ import (
 	"github.com/gorilla/sessions"
 )
 
-var loadedResources = []resources.OrganizationResourceAction{
-	resources.GcpServiceAccountResourcePostAction{},
-	resources.GcpServiceAccountResourceGetAction{},
-}
-
-func findResourceActions(internalKey string) []resources.OrganizationResourceAction {
-	var ret []resources.OrganizationResourceAction
-	for _, v := range loadedResources {
-		if internalKey == v.InternalKey() {
-			ret = append(ret, v)
-		}
-	}
-	return ret
-}
-
 // Server contains all the server code
 type Server struct {
 	Config              *ServerConfiguration
@@ -132,17 +117,25 @@ func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
 	}
 }
 
-func (s *Server) registerResourceApi(permission string, fn resourceApiFunc) func(c *gin.Context) {
+func (s *Server) registerResourceApi(resourceAction resources.OrganizationResourceAction, fn resourceApiFunc) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		subject, _ := c.Get("authenticated_user_profile")
 		userInfo, _ := s.Dao.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+
+		organizationID, _ := utils.StringToInt64(c.Param("organizationID"))
+		hasPermission, _ := s.Dao.DoesUserHavePermission(userInfo.ID, organizationID, resourceAction.PermissionName())
+
+		// @gmail.com as orgs
+		log.Printf("resource organizationid: %d required permission: %s user: %d", organizationID, resourceAction.PermissionName(), userInfo.ID)
+		if !hasPermission {
+			c.String(http.StatusUnauthorized, "not authorized")
+			return
+		}
 
 		params := resources.OperationParameters{}
 		params["resource-dao"] = s.ResourceDao
 		params["gin-context"] = c
 		params["user-info"] = userInfo
-
-		log.Printf("resource organizationid: %d required permission: %s user: %d", c.Param("organizationID"), permission, userInfo.ID)
 
 		fn(params)
 	}
@@ -214,11 +207,11 @@ func (s *Server) Serve() {
 
 	resourceRoutes := apiRoutes.Group("/resources/:organizationID")
 	for _, r := range s.registeredResources {
-		resources := findResourceActions(r.InternalKey)
+		resources := resources.FindResourceActions(r.InternalKey)
 		for _, theResource := range resources {
 			resourceRoutes.Handle(theResource.Method(),
 				theResource.InternalKey(),
-				s.registerResourceApi(theResource.PermissionName(), theResource.Execute))
+				s.registerResourceApi(theResource, theResource.Execute))
 		}
 	}
 
