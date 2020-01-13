@@ -107,7 +107,7 @@ func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandle
 	organizationIdStr := c.Param("organizationID")
 	organizationId, _ := utils.StringToInt64(organizationIdStr)
 
-	canView, _ := daoHandler.CanUserViewOrg(t.ID, organizationId)
+	canView := daoHandler.CanUserViewOrg(t.ID, organizationId)
 	if !canView {
 		c.String(http.StatusUnauthorized, "not authorized")
 		return

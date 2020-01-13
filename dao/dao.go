@@ -14,6 +14,7 @@ import (
 )
 
 type RegisteredResourcesStore map[string]*RegisteredResource
+type SettingsStore map[string]*Setting
 
 type DaoHandler interface {
 	Open()
@@ -30,15 +31,15 @@ type DaoHandler interface {
 	CreateInviteForUser(organizationId int64, name string) (int64, int64)
 	LoadUserFromInviteCode(inviteCode int64) *OrganizationUser
 	LoadUserFromCredential(credential string) *OrganizationUser
-	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error)
+	InitUserFromInviteCode(inviteCode, idpAuthCredential string) bool
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
-	CanUserViewOrg(userID, organizationID int64) (bool, error)
+	CanUserViewOrg(userID, organizationID int64) bool
 
 	DoesUserHavePermission(userID, organizationID int64, permission string) bool
 	DoesUserHaveSystemPermission(userID int64, permission string) bool
 
 	UpdateSettings(settings ...*Setting) error
-	GetSettings(key ...string) map[string]*Setting
+	GetSettings(key ...string) SettingsStore
 
 	AddRolesToUser(userID, organizationID int64, roleNames []string)
 	LoadEnabledResources() RegisteredResourcesStore
@@ -115,7 +116,7 @@ func (d *Dao) UpdateSettings(settings ...*Setting) error {
 	return nil
 }
 
-func (d *Dao) GetSettings(keys ...string) map[string]*Setting {
+func (d *Dao) GetSettings(keys ...string) SettingsStore {
 
 	sqlStatement := `
 		SELECT
@@ -131,7 +132,7 @@ func (d *Dao) GetSettings(keys ...string) map[string]*Setting {
 	}
 	defer rows.Close()
 
-	ret := make(map[string]*Setting)
+	ret := make(SettingsStore)
 	for rows.Next() {
 		s := &Setting{}
 		err = rows.Scan(&s.Key, &s.Value)
@@ -229,7 +230,7 @@ func (d *Dao) AssignOrganizationToParent(parentID int64, orgID int64) bool {
 	return true
 }
 
-func (d *Dao) CanUserViewOrg(userID, organizationID int64) (bool, error) {
+func (d *Dao) CanUserViewOrg(userID, organizationID int64) bool {
 	sqlStatement := ` 
 	SELECT
 		count(1)
@@ -247,14 +248,14 @@ func (d *Dao) CanUserViewOrg(userID, organizationID int64) (bool, error) {
 	var err error
 	err = row.Scan(&count)
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+		return false
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("error loading orgs to see if user can view: %w", err)
+		log.Fatal(err)
 	}
 
-	return count > 0, nil
+	return count > 0
 }
 func (d *Dao) loadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error) {
 	// find my first parent that has a valid service account (will always terminate at the root)
@@ -506,7 +507,7 @@ func (d *Dao) CreateOrganization(org *Organization) {
 	}
 }
 
-func (d *Dao) InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error) {
+func (d *Dao) InitUserFromInviteCode(inviteCode, idpAuthCredential string) bool {
 	sqlStatement := `
 	UPDATE 
 		organization_user 
@@ -519,12 +520,12 @@ func (d *Dao) InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool
 	`
 	_, err := d.Db.Exec(sqlStatement, idpAuthCredential, inviteCode)
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+		return false
 	}
 	if err != nil {
-		return false, fmt.Errorf("error loading user from invite code %v: %w", inviteCode, err)
+		log.Fatal("error loading user from invite code %v: %w", inviteCode, err)
 	}
-	return true, nil
+	return true
 }
 
 func (d *Dao) LoadEnabledResources() RegisteredResourcesStore {

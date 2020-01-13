@@ -75,6 +75,11 @@ func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin
 	w := c.Writer
 	r := c.Request
 
+	settings := dao.GetSettings(Auth0ClientIdConfigurationKey)
+	if len(settings) == 0 {
+		log.Fatal("no clientid configured")
+	}
+
 	session, err := store.Get(r, "auth-session")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -100,7 +105,7 @@ func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin
 	}
 
 	oidcConfig := &oidc.Config{
-		ClientID: "***REMOVED***",
+		ClientID: settings[Auth0ClientIdConfigurationKey].Value,
 	}
 
 	idToken, err := s.Authenticator.Provider.Verifier(oidcConfig).Verify(context.TODO(), rawIDToken)
@@ -119,13 +124,9 @@ func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin
 
 	stateWithInvite := strings.Split(r.URL.Query().Get("state"), "|")
 	if len(stateWithInvite) > 1 {
-		initialized, err := dao.InitUserFromInviteCode(stateWithInvite[1], fmt.Sprintf("%v", profile["sub"]))
+		initialized := dao.InitUserFromInviteCode(stateWithInvite[1], fmt.Sprintf("%v", profile["sub"]))
 		if !initialized {
 			http.Error(w, "Failed to initialize user", http.StatusOK)
-			return
-		}
-		if err != nil {
-			http.Error(w, "Failed to initialize user: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
