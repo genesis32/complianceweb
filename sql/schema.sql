@@ -81,3 +81,10 @@ settings (
     value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS
+registered_resource_actions (
+    id BIGINT,
+    display_name TEXT,
+    internal_key TEXT,
+    enabled BOOLEAN
+);

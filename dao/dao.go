@@ -13,6 +13,8 @@ import (
 	_ "github.com/lib/pq"
 )
 
+type RegisteredResourcesStore map[string]*RegisteredResource
+
 type DaoHandler interface {
 	Open()
 	Close() error
@@ -40,14 +42,15 @@ type DaoHandler interface {
 	GetSettings(key ...string) map[string]*Setting
 
 	AddRolesToUser(userID, organizationID int64, roleNames []string)
+	LoadEnabledResources() RegisteredResourcesStore
 }
 
 type Dao struct {
 	Db *sql.DB
 }
 
-func NewDaoHandler() DaoHandler {
-	return &Dao{Db: nil}
+func NewDaoHandler(db *sql.DB) *Dao {
+	return &Dao{Db: db}
 }
 
 func (d *Dao) AddRolesToUser(organizationID, userID int64, roleNames []string) {
@@ -486,6 +489,34 @@ func (d *Dao) InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool
 		return false, fmt.Errorf("error loading user from invite code %v: %w", inviteCode, err)
 	}
 	return true, nil
+}
+
+func (d *Dao) LoadEnabledResources() RegisteredResourcesStore {
+	sqlStatement := `
+		SELECT
+				id, display_name, internal_key
+		FROM
+				registered_resources
+		WHERE
+				enabled = true
+`
+	rows, err := d.Db.Query(sqlStatement)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	ret := make(RegisteredResourcesStore)
+	for rows.Next() {
+		s := &RegisteredResource{Enabled: true}
+		err = rows.Scan(&s.ID, &s.DisplayName, &s.InternalKey)
+		if err != nil {
+			log.Fatal(err)
+		}
+		ret[s.InternalKey] = s
+	}
+
+	return ret
 }
 
 func (d *Dao) TrySelect() {

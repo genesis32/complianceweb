@@ -131,6 +131,10 @@ func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.D
 	t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
 
 	organizations, _ := daoHandler.LoadOrganizationsForUser(t.ID)
+	if len(organizations) == 0 {
+		c.String(http.StatusBadRequest, "no organizations")
+		return
+	}
 
 	orgTreeRep := make(map[int64]*UserOrganizationResponse)
 	// all the organizations we can see
@@ -167,6 +171,8 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 		c.String(http.StatusBadRequest, fmt.Sprintf("upload format: %s", err.Error()))
 		return
 	}
+
+	// TODO: Verify we have at least 1 role specified
 
 	userId, inviteCode := daoHandler.CreateInviteForUser(addRequest.ParentOrganizationID, addRequest.Name)
 

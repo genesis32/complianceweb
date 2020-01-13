@@ -9,6 +9,13 @@ const (
 	GcpAccount = "GCP"
 )
 
+type RegisteredResource struct {
+	ID          int64
+	DisplayName string
+	InternalKey string
+	Enabled     bool
+}
+
 type ServiceAccountCredentials struct {
 	OwningOrganizationID int64
 	Type                 string

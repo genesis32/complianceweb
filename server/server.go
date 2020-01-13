@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/genesis32/complianceweb/resources"
+
 	"github.com/genesis32/complianceweb/auth"
 	"github.com/genesis32/complianceweb/dao"
 	"github.com/genesis32/complianceweb/utils"
@@ -13,13 +15,30 @@ import (
 	"github.com/gorilla/sessions"
 )
 
+var loadedResources = []resources.OrganizationResourceAction{
+	resources.GcpServiceAccountResourcePostAction{},
+	resources.GcpServiceAccountResourceGetAction{},
+}
+
+func findResourceActions(internalKey string) []resources.OrganizationResourceAction {
+	var ret []resources.OrganizationResourceAction
+	for _, v := range loadedResources {
+		if internalKey == v.InternalKey() {
+			ret = append(ret, v)
+		}
+	}
+	return ret
+}
+
 // Server contains all the server code
 type Server struct {
-	Config        *ServerConfiguration
-	Dao           dao.DaoHandler
-	SessionStore  sessions.Store
-	Authenticator *auth.Authenticator
-	router        *gin.Engine
+	Config              *ServerConfiguration
+	Dao                 dao.DaoHandler
+	ResourceDao         dao.ResourceDaoHandler
+	SessionStore        sessions.Store
+	Authenticator       *auth.Authenticator
+	router              *gin.Engine
+	registeredResources dao.RegisteredResourcesStore
 }
 
 func initCookieKeys(daoHandler dao.DaoHandler) ([]byte, []byte) {
@@ -66,11 +85,14 @@ func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
 
 // NewServer returns a new server
 func NewServer() *Server {
-	dao := dao.NewDaoHandler()
-	dao.Open()
-	dao.TrySelect()
+	daoHandler := dao.NewDaoHandler(nil)
+	daoHandler.Open()
+	daoHandler.TrySelect()
 
-	config := loadConfiguration(dao)
+	resourceDaoHandler := dao.NewResourceDaoHandler(nil)
+	resourceDaoHandler.Open()
+
+	config := loadConfiguration(daoHandler)
 
 	// We aren't even using this anymore but we'll keep it around just incase
 	sessionStore := sessions.NewCookieStore(config.CookieAuthenticationKey, config.CookieEncryptionKey)
@@ -82,13 +104,15 @@ func NewServer() *Server {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &Server{Config: config, SessionStore: sessionStore, Dao: dao, Authenticator: authenticator}
+	return &Server{Config: config, SessionStore: sessionStore, Dao: daoHandler, ResourceDao: resourceDaoHandler, Authenticator: authenticator}
 }
 
 // Startup the server
 func (s *Server) Startup() error {
 	gob.Register(map[string]interface{}{})
 	gob.Register(&dao.OrganizationUser{})
+
+	s.registeredResources = s.Dao.LoadEnabledResources()
 
 	return nil
 }
@@ -100,10 +124,27 @@ func (s *Server) Shutdown() error {
 }
 
 type webAppFunc func(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context)
+type resourceApiFunc func(parameters resources.OperationParameters)
 
 func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		fn(s, s.SessionStore, s.Dao, c)
+	}
+}
+
+func (s *Server) registerResourceApi(permission string, fn resourceApiFunc) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		subject, _ := c.Get("authenticated_user_profile")
+		userInfo, _ := s.Dao.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+
+		params := resources.OperationParameters{}
+		params["resource-dao"] = s.ResourceDao
+		params["gin-context"] = c
+		params["user-info"] = userInfo
+
+		log.Printf("resource organizationid: %d required permission: %s user: %d", c.Param("organizationID"), permission, userInfo.ID)
+
+		fn(params)
 	}
 }
 
@@ -168,7 +209,17 @@ func (s *Server) Serve() {
 
 		apiRoutes.POST("/users", s.registerWebApp(UserApiPostHandler))
 
-		apiRoutes.POST("/gcp/service-account", s.registerWebApp(UserCreateGcpServiceAccountApiPostHandler))
+		//		apiRoutes.POST("/gcp/service-account", s.registerWebApp(UserCreateGcpServiceAccountApiPostHandler))
+	}
+
+	resourceRoutes := apiRoutes.Group("/resources/:organizationID")
+	for _, r := range s.registeredResources {
+		resources := findResourceActions(r.InternalKey)
+		for _, theResource := range resources {
+			resourceRoutes.Handle(theResource.Method(),
+				theResource.InternalKey(),
+				s.registerResourceApi(theResource.PermissionName(), theResource.Execute))
+		}
 	}
 
 	s.router.GET("/", func(c *gin.Context) {
