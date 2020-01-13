@@ -27,11 +27,7 @@ func InviteHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c
 	if c.Request.Method == "GET" {
 		inviteCodeStr := c.Param("inviteCode")
 		inviteCode, _ := utils.StringToInt64(inviteCodeStr)
-		theUser, err := daoHandler.LoadUserFromInviteCode(inviteCode)
-		if err != nil {
-			c.String(http.StatusBadRequest, fmt.Sprintf("error getting invite code: %s", err.Error()))
-			return
-		}
+		theUser := daoHandler.LoadUserFromInviteCode(inviteCode)
 		if theUser == nil {
 			c.String(http.StatusBadRequest, fmt.Sprintf("invite code not valid"))
 			return

@@ -21,16 +21,15 @@ type DaoHandler interface {
 	TrySelect()
 	GetNextUniqueId() int64
 
-	CreateOrganization(*Organization) error
-	AssignOrganizationToParent(parentId, orgID int64) (bool, error)
-	LoadOrganizationsForUser(userID int64) (map[int64]*Organization, error)
-	LoadOrganizationDetails(organizationID int64) (*Organization, error)
-
-	LoadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error)
+	LoadOrganizationMetadata(organizationID int64) OrganizationMetadata
+	CreateOrganization(*Organization)
+	AssignOrganizationToParent(parentId, orgID int64) bool
+	LoadOrganizationsForUser(userID int64) map[int64]*Organization
+	LoadOrganizationDetails(organizationID int64) *Organization
 
 	CreateInviteForUser(organizationId int64, name string) (int64, int64)
-	LoadUserFromInviteCode(inviteCode int64) (*OrganizationUser, error)
-	LoadUserFromCredential(credential string) (*OrganizationUser, error)
+	LoadUserFromInviteCode(inviteCode int64) *OrganizationUser
+	LoadUserFromCredential(credential string) *OrganizationUser
 	InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error)
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
 	CanUserViewOrg(userID, organizationID int64) (bool, error)
@@ -47,6 +46,22 @@ type DaoHandler interface {
 
 type Dao struct {
 	Db *sql.DB
+}
+
+func (d *Dao) LoadOrganizationMetadata(organizationID int64) OrganizationMetadata {
+	sqlStatement := `SELECT metadata FROM organization_metadata WHERE organization_id = $1`
+	var ret OrganizationMetadata
+
+	row := d.Db.QueryRow(sqlStatement, organizationID)
+	err := row.Scan(&ret)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return ret
 }
 
 func NewDaoHandler(db *sql.DB) *Dao {
@@ -193,7 +208,7 @@ func (d *Dao) DoesUserHavePermission(userID, organizationID int64, permission st
 	return count > 0, nil
 }
 
-func (d *Dao) AssignOrganizationToParent(parentID int64, orgID int64) (bool, error) {
+func (d *Dao) AssignOrganizationToParent(parentID int64, orgID int64) bool {
 	sqlStatement := `
 		UPDATE
 			organization	
@@ -204,12 +219,14 @@ func (d *Dao) AssignOrganizationToParent(parentID int64, orgID int64) (bool, err
 `
 	_, err := d.Db.Exec(sqlStatement, parentID, orgID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+		return false
 	}
+
 	if err != nil {
-		return false, fmt.Errorf("error adding organization to parent %w", err)
+		log.Fatalf("error adding organization to parent %w", err)
 	}
-	return true, nil
+
+	return true
 }
 
 func (d *Dao) CanUserViewOrg(userID, organizationID int64) (bool, error) {
@@ -239,7 +256,7 @@ func (d *Dao) CanUserViewOrg(userID, organizationID int64) (bool, error) {
 
 	return count > 0, nil
 }
-func (d *Dao) LoadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error) {
+func (d *Dao) loadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error) {
 	// find my first parent that has a valid service account (will always terminate at the root)
 	sqlStatement := `
 SELECT
@@ -300,7 +317,7 @@ func (d *Dao) GetNextUniqueId() int64 {
 	return rand.Int63()
 }
 
-func (d *Dao) LoadOrganizationDetails(organizationID int64) (*Organization, error) {
+func (d *Dao) LoadOrganizationDetails(organizationID int64) *Organization {
 	ret := &Organization{}
 	{
 		sqlStatement := `
@@ -314,10 +331,10 @@ func (d *Dao) LoadOrganizationDetails(organizationID int64) (*Organization, erro
 		row := d.Db.QueryRow(sqlStatement, organizationID)
 		err := row.Scan(&ret.ID, &ret.DisplayName)
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil
 		}
 		if err != nil {
-			return nil, fmt.Errorf("error loading organization id %d error: %w", organizationID, err)
+			log.Fatalf("error loading organization id %d error: %w", organizationID, err)
 		}
 	}
 
@@ -336,24 +353,24 @@ func (d *Dao) LoadOrganizationDetails(organizationID int64) (*Organization, erro
 		var err error
 		rows, err := d.Db.Query(sqlStatement, organizationID)
 		if err != nil {
-			return nil, err
+			log.Fatal(err)
 		}
 		defer rows.Close()
 
+		ret.Users = make([]*OrganizationUser, 0)
 		for rows.Next() {
 			u := &OrganizationUser{}
 			err = rows.Scan(&u.ID, &u.DisplayName)
 			if err != nil {
-				return nil, err
+				log.Fatal(err)
 			}
 			ret.Users = append(ret.Users, u)
 		}
 	}
-
-	return ret, nil
+	return ret
 }
 
-func (d *Dao) LoadOrganizationsForUser(userID int64) (map[int64]*Organization, error) {
+func (d *Dao) LoadOrganizationsForUser(userID int64) map[int64]*Organization {
 	sqlStatement := `
 	SELECT 
 		id,display_name,path
@@ -367,7 +384,7 @@ func (d *Dao) LoadOrganizationsForUser(userID int64) (map[int64]*Organization, e
 	var err error
 	rows, err := d.Db.Query(sqlStatement, userID)
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 	defer rows.Close()
 
@@ -376,12 +393,12 @@ func (d *Dao) LoadOrganizationsForUser(userID int64) (map[int64]*Organization, e
 		org := &Organization{}
 		err = rows.Scan(&org.ID, &org.DisplayName, &org.Path)
 		if err != nil {
-			return nil, err
+			log.Fatal(err)
 		}
 		userOrgs[org.ID] = org
 	}
 
-	return userOrgs, nil
+	return userOrgs
 }
 
 func (d *Dao) LogUserIn(idpAuthCredential string) (*OrganizationUser, error) {
@@ -400,35 +417,35 @@ func (d *Dao) LogUserIn(idpAuthCredential string) (*OrganizationUser, error) {
 	return &orgUser, nil
 }
 
-func (d *Dao) LoadUserFromCredential(credential string) (*OrganizationUser, error) {
+func (d *Dao) LoadUserFromCredential(credential string) *OrganizationUser {
 	sqlStatement := `SELECT id, display_name, ARRAY(SELECT organization_id FROM organization_organization_user_xref WHERE organization_user_id = id), (current_state = 1) FROM organization_user WHERE idp_credential_value=$1`
 	var orgUser OrganizationUser
 
 	row := d.Db.QueryRow(sqlStatement, credential)
 	err := row.Scan(&orgUser.ID, &orgUser.DisplayName, pq.Array(&orgUser.Organizations), &orgUser.Active)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("error loading user from credential %v: %w", credential, err)
+		log.Fatalf("error loading user from credential %v: %w", credential, err)
 	}
 
-	return &orgUser, nil
+	return &orgUser
 }
-func (d *Dao) LoadUserFromInviteCode(inviteCode int64) (*OrganizationUser, error) {
+func (d *Dao) LoadUserFromInviteCode(inviteCode int64) *OrganizationUser {
 	sqlStatement := `SELECT id, display_name FROM organization_user WHERE invite_code=$1 AND current_state=0`
 	var orgUser OrganizationUser
 
 	row := d.Db.QueryRow(sqlStatement, inviteCode)
 	err := row.Scan(&orgUser.ID, &orgUser.DisplayName)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("error loading user from invite code %v: %w", inviteCode, err)
+		log.Fatalf("error loading user from invite code %v: %w", inviteCode, err)
 	}
 
-	return &orgUser, nil
+	return &orgUser
 }
 
 func (d *Dao) CreateInviteForUser(organizationId int64, name string) (int64, int64) {
@@ -458,16 +475,35 @@ INSERT INTO organization_organization_user_xref (organization_id, organization_u
 	return orgUserID, inviteCode
 }
 
-func (d *Dao) CreateOrganization(org *Organization) error {
-	sqlStatement := `
-	INSERT INTO organization (id, display_name, master_account_type, master_account_credential, path) 
-	VALUES ($1, $2, $3, $4, $5)
+func (d *Dao) CreateOrganization(org *Organization) {
+	tx, _ := d.Db.Begin()
+	{
+		sqlStatement := `
+	INSERT INTO organization (id, display_name, path) 
+	VALUES ($1, $2, $3)
 	`
-	_, err := d.Db.Exec(sqlStatement, org.ID, org.DisplayName, GcpAccount, org.masterAccountCredential, fmt.Sprintf("%d", org.ID))
-	if err != nil {
-		return err
+		_, err := d.Db.Exec(sqlStatement, org.ID, org.DisplayName, fmt.Sprintf("%d", org.ID))
+		if err != nil {
+			tx.Rollback()
+			log.Fatal(err)
+		}
 	}
-	return nil
+
+	{
+		sqlStatement := `
+		INSERT INTO organization_metadata(id, organization_id, metadata) 
+		VALUES ($1, $2, $3)
+`
+		_, err := d.Db.Exec(sqlStatement, d.GetNextUniqueId(), org.ID, "{}")
+		if err != nil {
+			tx.Rollback()
+			log.Fatal(err)
+		}
+	}
+	err := tx.Commit()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (d *Dao) InitUserFromInviteCode(inviteCode, idpAuthCredential string) (bool, error) {

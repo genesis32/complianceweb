@@ -31,12 +31,10 @@ type User struct {
 }
 
 type Organization struct {
-	ID                      int64
-	DisplayName             string
-	MasterAccountType       string
-	masterAccountCredential string // TODO: Break this out later
-	Path                    string
-	Users                   []*OrganizationUser
+	ID          int64
+	DisplayName string
+	Path        string
+	Users       []*OrganizationUser
 }
 type OrganizationUser struct {
 	ID            int64
@@ -72,12 +70,4 @@ func (s *Setting) Base64DecodeValue() []byte {
 		log.Fatalf("cannot decode key %s: %w", s.Key, err)
 	}
 	return ret
-}
-
-func (o *Organization) EncodeMasterAccountCredential(cred string) {
-	o.masterAccountCredential = cred
-}
-
-func (o *Organization) DecodeMasterAccountCredential() string {
-	return o.masterAccountCredential
 }

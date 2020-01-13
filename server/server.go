@@ -120,7 +120,7 @@ func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
 func (s *Server) registerResourceApi(resourceAction resources.OrganizationResourceAction, fn resourceApiFunc) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		subject, _ := c.Get("authenticated_user_profile")
-		userInfo, _ := s.Dao.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+		userInfo := s.Dao.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
 
 		organizationID, _ := utils.StringToInt64(c.Param("organizationID"))
 		hasPermission, _ := s.Dao.DoesUserHavePermission(userInfo.ID, organizationID, resourceAction.PermissionName())
@@ -132,10 +132,13 @@ func (s *Server) registerResourceApi(resourceAction resources.OrganizationResour
 			return
 		}
 
+		metadata := s.Dao.LoadOrganizationMetadata(organizationID)
+
 		params := resources.OperationParameters{}
-		params["resource-dao"] = s.ResourceDao
-		params["gin-context"] = c
-		params["user-info"] = userInfo
+		params["organizationMetadata"] = metadata
+		params["resourceDao"] = s.ResourceDao
+		params["httpRequest"] = c.Request
+		params["userUnfo"] = userInfo
 
 		fn(params)
 	}
@@ -201,8 +204,6 @@ func (s *Server) Serve() {
 		apiRoutes.GET("/organizations/:organizationID", s.registerWebApp(OrganizationDetailsApiGetHandler))
 
 		apiRoutes.POST("/users", s.registerWebApp(UserApiPostHandler))
-
-		//		apiRoutes.POST("/gcp/service-account", s.registerWebApp(UserCreateGcpServiceAccountApiPostHandler))
 	}
 
 	resourceRoutes := apiRoutes.Group("/resources/:organizationID")

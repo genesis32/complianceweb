@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -69,7 +68,7 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 	}
 
 	subject, _ := c.Get("authenticated_user_profile")
-	t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
 
 	// TODO: Add in test that user has visibility over a ParentOrganizationID
 	if createRequest.ParentOrganizationID != 0 {
@@ -89,13 +88,8 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 	var newOrg dao.Organization
 	newOrg.ID = daoHandler.GetNextUniqueId()
 	newOrg.DisplayName = createRequest.Name
-	newOrg.MasterAccountType = createRequest.AccountCredentialType
-	newOrg.EncodeMasterAccountCredential(createRequest.AccountCredential)
 
-	if err := daoHandler.CreateOrganization(&newOrg); err != nil {
-		c.String(http.StatusBadRequest, fmt.Sprintf("upload creating db org: %s", err.Error()))
-		return
-	}
+	daoHandler.CreateOrganization(&newOrg)
 
 	if createRequest.ParentOrganizationID != 0 {
 		daoHandler.AssignOrganizationToParent(createRequest.ParentOrganizationID, newOrg.ID)
@@ -108,7 +102,7 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 
 func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 	subject, _ := c.Get("authenticated_user_profile")
-	t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
 
 	organizationIdStr := c.Param("organizationID")
 	organizationId, _ := utils.StringToInt64(organizationIdStr)
@@ -119,7 +113,7 @@ func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandle
 		return
 	}
 
-	organization, _ := daoHandler.LoadOrganizationDetails(organizationId)
+	organization := daoHandler.LoadOrganizationDetails(organizationId)
 
 	// TODO: Put into a nice public version
 	c.JSON(http.StatusOK, organization)
@@ -128,9 +122,9 @@ func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandle
 func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 	subject, _ := c.Get("authenticated_user_profile")
 
-	t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
 
-	organizations, _ := daoHandler.LoadOrganizationsForUser(t.ID)
+	organizations := daoHandler.LoadOrganizationsForUser(t.ID)
 	if len(organizations) == 0 {
 		c.String(http.StatusBadRequest, "no organizations")
 		return
@@ -183,6 +177,7 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 	c.JSON(200, r)
 }
 
+/*
 func UserCreateGcpServiceAccountApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 
 	var serviceAccountRequest GcpServiceAccountCreateRequest
@@ -209,10 +204,11 @@ func UserCreateGcpServiceAccountApiPostHandler(s *Server, store sessions.Store, 
 		return
 	}
 
-	serviceAccountKey, _ := createServiceAccount(context.Background(), serviceAccountCredentials.RawCredentials, serviceAccountRequest.DisplayName)
+	serviceAccountKey, _ := resources.createServiceAccount(context.Background(), serviceAccountCredentials.RawCredentials, serviceAccountRequest.DisplayName)
 
 	if serviceAccountKey != nil {
 		response.ID = serviceAccountKey.Name
 	}
 	c.JSON(http.StatusOK, response)
 }
+*/

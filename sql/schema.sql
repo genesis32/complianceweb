@@ -3,8 +3,6 @@ organization
 (
   id BIGINT PRIMARY KEY,
   display_name TEXT,
-  master_account_type TEXT,
-  master_account_credential TEXT,
   created_timestamp TIMESTAMP,
   current_state INT,
   path ltree
@@ -83,8 +81,15 @@ settings (
 
 CREATE TABLE IF NOT EXISTS
 registered_resource_actions (
-    id BIGINT,
+    id BIGINT PRIMARY KEY,
     display_name TEXT,
     internal_key TEXT,
     enabled BOOLEAN
+);
+
+CREATE TABLE IF NOT EXISTS
+organization_metadata (
+    id BIGINT PRIMARY KEY,
+    organization_id BIGINT,
+    metadata jsonb
 );
