@@ -177,6 +177,54 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 	c.JSON(200, r)
 }
 
+func OrganizationMetadataApiPutHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) {
+	var metadataUpdateRequest OrganizationMetadataUpdateRequest
+
+	if err := c.ShouldBind(&metadataUpdateRequest); err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("metadata format: %s", err.Error()))
+		return
+	}
+
+	subject, _ := c.Get("authenticated_user_profile")
+	t := handler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+
+	organizationIDStr := c.Param("organizationID")
+	organizationID, _ := utils.StringToInt64(organizationIDStr)
+
+	hasPermission := handler.DoesUserHavePermission(t.ID, organizationID, OrganizationCreatePermission)
+	if !hasPermission {
+		c.String(http.StatusUnauthorized, "not authorized")
+		return
+	}
+
+	handler.UpdateOrganizationMetadata(organizationID, metadataUpdateRequest.Metadata)
+}
+
+func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) {
+	var metadataUpdateRequest OrganizationMetadataUpdateRequest
+
+	if err := c.ShouldBind(&metadataUpdateRequest); err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("metadata format: %s", err.Error()))
+		return
+	}
+
+	subject, _ := c.Get("authenticated_user_profile")
+	t := handler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+
+	organizationIDStr := c.Param("organizationID")
+	organizationID, _ := utils.StringToInt64(organizationIDStr)
+
+	// TODO: Break out permissions
+	hasPermission := handler.DoesUserHavePermission(t.ID, organizationID, OrganizationCreatePermission)
+	if !hasPermission {
+		c.String(http.StatusUnauthorized, "not authorized")
+		return
+	}
+
+	settings := handler.LoadOrganizationMetadata(organizationID)
+	c.JSON(200, settings)
+}
+
 /*
 func UserCreateGcpServiceAccountApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 

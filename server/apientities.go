@@ -51,3 +51,7 @@ type AddUserToOrganizationResponse struct {
 
 type AssignRoleToUserRequest struct {
 }
+
+type OrganizationMetadataUpdateRequest struct {
+	Metadata map[string]interface{}
+}

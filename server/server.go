@@ -204,6 +204,9 @@ func (s *Server) Serve() {
 		apiRoutes.GET("/organizations", s.registerWebApp(OrganizationApiGetHandler))
 		apiRoutes.GET("/organizations/:organizationID", s.registerWebApp(OrganizationDetailsApiGetHandler))
 
+		apiRoutes.PUT("/organizations/:organizationID/metadata", s.registerWebApp(OrganizationMetadataApiPutHandler))
+		apiRoutes.GET("/organizations/:organizationID/metadata", s.registerWebApp(OrganizationMetadataApiGetHandler))
+
 		apiRoutes.POST("/users", s.registerWebApp(UserApiPostHandler))
 	}
 

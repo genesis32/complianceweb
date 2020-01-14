@@ -23,6 +23,7 @@ type DaoHandler interface {
 
 	LoadMetadataInTree(organizationId int64, key string) (int64, OrganizationMetadata)
 	LoadOrganizationMetadata(organizationID int64) OrganizationMetadata
+	UpdateOrganizationMetadata(organizationID int64, metadata OrganizationMetadata)
 
 	CreateOrganization(*Organization)
 	AssignOrganizationToParent(parentId, orgID int64) bool
@@ -48,6 +49,17 @@ type DaoHandler interface {
 
 type Dao struct {
 	Db *sql.DB
+}
+
+func (d *Dao) UpdateOrganizationMetadata(organizationID int64, metadata OrganizationMetadata) {
+	sqlStatement := `
+		UPDATE organization SET metadata = $2 WHERE id = $1 
+`
+	_, err := d.Db.Exec(sqlStatement, organizationID, metadata)
+
+	if err != nil {
+		log.Fatalf("error updating metadata %w", err)
+	}
 }
 
 func (d *Dao) LoadOrganizationMetadata(organizationID int64) OrganizationMetadata {
