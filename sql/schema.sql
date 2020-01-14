@@ -5,6 +5,7 @@ organization
   display_name TEXT,
   created_timestamp TIMESTAMP,
   current_state INT,
+  metadata jsonb,
   path ltree
 );
 
@@ -85,11 +86,4 @@ registered_resources (
     display_name TEXT,
     internal_key TEXT,
     enabled BOOLEAN
-);
-
-CREATE TABLE IF NOT EXISTS
-organization_metadata (
-    id BIGINT PRIMARY KEY,
-    organization_id BIGINT,
-    metadata jsonb
 );

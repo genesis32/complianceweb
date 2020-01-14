@@ -2,7 +2,6 @@ package dao
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -22,7 +21,9 @@ type DaoHandler interface {
 	TrySelect()
 	GetNextUniqueId() int64
 
+	LoadMetadataInTree(organizationId int64, key string) (int64, OrganizationMetadata)
 	LoadOrganizationMetadata(organizationID int64) OrganizationMetadata
+
 	CreateOrganization(*Organization)
 	AssignOrganizationToParent(parentId, orgID int64) bool
 	LoadOrganizationsForUser(userID int64) map[int64]*Organization
@@ -50,7 +51,7 @@ type Dao struct {
 }
 
 func (d *Dao) LoadOrganizationMetadata(organizationID int64) OrganizationMetadata {
-	sqlStatement := `SELECT metadata FROM organization_metadata WHERE organization_id = $1`
+	sqlStatement := `SELECT metadata FROM organization WHERE id = $1`
 	var ret OrganizationMetadata
 
 	row := d.Db.QueryRow(sqlStatement, organizationID)
@@ -257,48 +258,39 @@ func (d *Dao) CanUserViewOrg(userID, organizationID int64) bool {
 
 	return count > 0
 }
-func (d *Dao) loadServiceAccountCredentials(organizationId int64) (*ServiceAccountCredentials, error) {
+func (d *Dao) LoadMetadataInTree(organizationId int64, key string) (int64, OrganizationMetadata) {
 	// find my first parent that has a valid service account (will always terminate at the root)
 	sqlStatement := `
 SELECT
-    orgid, mat, mac
+    orgid, metadata
 FROM
     (SELECT
          orgid,
          ordernum,
-         (SELECT master_account_type FROM organization WHERE id = orgid::bigint) mat,
-         (SELECT master_account_credential FROM organization WHERE id = orgid::bigint) mac
+         (SELECT metadata FROM organization WHERE id = orgid::bigint) metadata
      FROM
          organization o,
          regexp_split_to_table(o.path::text, E'\\.') WITH ORDINALITY x(orgid,ordernum)
      WHERE TRUE
-       AND o.id = $1) as orgs_with_accts
+       AND o.id = $1) as orgs_with_metadata
 WHERE
-    mat IS NOT NULL
+    metadata->>$2 IS NOT NULL
 ORDER BY ordernum DESC LIMIT 1;
 	`
-	var credentials ServiceAccountCredentials
-	var err error
-	row := d.Db.QueryRow(sqlStatement, organizationId)
+	row := d.Db.QueryRow(sqlStatement, organizationId, key)
 
-	var jsonCredentials string
-	err = row.Scan(&credentials.OwningOrganizationID, &credentials.Type, &jsonCredentials)
+	var organizationID int64
+	var organizationMetadata OrganizationMetadata
+	err := row.Scan(&organizationID, &organizationMetadata)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return 0, nil
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("error loading user from credential: %w", err)
+		log.Fatal(err)
 	}
 
-	credentials.RawCredentials = []byte(jsonCredentials)
-
-	err = json.Unmarshal(credentials.RawCredentials, &credentials.Credentials)
-	if err != nil {
-		return nil, fmt.Errorf("error loading user from credential: %w", err)
-	}
-
-	return &credentials, nil
+	return organizationID, organizationMetadata
 }
 
 func (d *Dao) Open() {
@@ -477,31 +469,11 @@ INSERT INTO organization_organization_user_xref (organization_id, organization_u
 }
 
 func (d *Dao) CreateOrganization(org *Organization) {
-	tx, _ := d.Db.Begin()
-	{
-		sqlStatement := `
-	INSERT INTO organization (id, display_name, path) 
-	VALUES ($1, $2, $3)
+	sqlStatement := `
+	INSERT INTO organization (id, display_name, metadata, path)
+	VALUES ($1, $2, '{}', $3)
 	`
-		_, err := d.Db.Exec(sqlStatement, org.ID, org.DisplayName, fmt.Sprintf("%d", org.ID))
-		if err != nil {
-			tx.Rollback()
-			log.Fatal(err)
-		}
-	}
-
-	{
-		sqlStatement := `
-		INSERT INTO organization_metadata(id, organization_id, metadata) 
-		VALUES ($1, $2, $3)
-`
-		_, err := d.Db.Exec(sqlStatement, d.GetNextUniqueId(), org.ID, "{}")
-		if err != nil {
-			tx.Rollback()
-			log.Fatal(err)
-		}
-	}
-	err := tx.Commit()
+	_, err := d.Db.Exec(sqlStatement, org.ID, org.DisplayName, fmt.Sprintf("%d", org.ID))
 	if err != nil {
 		log.Fatal(err)
 	}

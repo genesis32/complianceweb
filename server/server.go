@@ -132,7 +132,8 @@ func (s *Server) registerResourceApi(resourceAction resources.OrganizationResour
 			return
 		}
 
-		metadata := s.Dao.LoadOrganizationMetadata(organizationID)
+		orgIDWithMetadata, metadata := s.Dao.LoadMetadataInTree(organizationID, "key")
+		log.Printf("loaded orgid: %d metadata", orgIDWithMetadata)
 
 		params := resources.OperationParameters{}
 		params["organizationMetadata"] = metadata
