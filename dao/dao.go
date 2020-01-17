@@ -14,6 +14,7 @@ import (
 
 type RegisteredResourcesStore map[string]*RegisteredResource
 type SettingsStore map[string]*Setting
+type UserRoleStore map[int64][]Role
 
 type DaoHandler interface {
 	Open()
@@ -31,8 +32,11 @@ type DaoHandler interface {
 	LoadOrganizationDetails(organizationID int64) *Organization
 
 	CreateInviteForUser(organizationId int64, name string) (int64, int64)
+
 	LoadUserFromInviteCode(inviteCode int64) *OrganizationUser
 	LoadUserFromCredential(credential string) *OrganizationUser
+	LoadUserFromID(id int64) *OrganizationUser
+
 	InitUserFromInviteCode(inviteCode, idpAuthCredential string) bool
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
 	CanUserViewOrg(userID, organizationID int64) bool
@@ -43,12 +47,62 @@ type DaoHandler interface {
 	UpdateSettings(settings ...*Setting) error
 	GetSettings(key ...string) SettingsStore
 
-	AddRolesToUser(userID, organizationID int64, roleNames []string)
+	SetRolesToUser(userID, organizationID int64, roleNames []string)
 	LoadEnabledResources() RegisteredResourcesStore
 }
 
 type Dao struct {
 	Db *sql.DB
+}
+
+func (d *Dao) LoadUserFromID(id int64) *OrganizationUser {
+	var ret OrganizationUser
+	{
+		sqlStatement := `
+			SELECT
+				id, display_name
+			FROM
+				organization_user 
+			WHERE
+				id = $1
+`
+		row := d.Db.QueryRow(sqlStatement, id)
+		err := row.Scan(&ret.ID, &ret.DisplayName)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	ret.UserRoles = make(UserRoleStore)
+	{
+		sqlStatement := `
+		SELECT 
+			organization_id, role_id, (SELECT display_name FROM role where id = role_id) 
+		FROM 
+			organization_organization_user_role_xref 
+		WHERE 
+			organization_user_id = $1
+`
+		rows, err := d.Db.Query(sqlStatement, id)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var organizationID, roleID int64
+			var roleName string
+			err = rows.Scan(&organizationID, &roleID, &roleName)
+			if err != nil {
+				log.Fatal(err)
+			}
+			ret.UserRoles[organizationID] = append(ret.UserRoles[organizationID], Role{ID: roleID, DisplayName: roleName})
+		}
+	}
+	return &ret
 }
 
 func (d *Dao) UpdateOrganizationMetadata(organizationID int64, metadata OrganizationMetadata) {
@@ -82,8 +136,21 @@ func NewDaoHandler(db *sql.DB) *Dao {
 	return &Dao{Db: db}
 }
 
-func (d *Dao) AddRolesToUser(organizationID, userID int64, roleNames []string) {
+func (d *Dao) SetRolesToUser(organizationID, userID int64, roleNames []string) {
 	tx, _ := d.Db.Begin()
+
+	sqlStatement := `
+		DELETE FROM
+			organization_organization_user_role_xref
+		WHERE 
+			organization_id = $1 
+			AND organization_user_id = $2
+`
+	_, err := tx.Exec(sqlStatement, organizationID, userID)
+	if err != nil {
+		tx.Rollback()
+		log.Fatal(err)
+	}
 
 	for i := range roleNames {
 		sqlStatement := `
@@ -99,7 +166,10 @@ func (d *Dao) AddRolesToUser(organizationID, userID int64, roleNames []string) {
 			log.Fatal(err)
 		}
 	}
-	tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (d *Dao) UpdateSettings(settings ...*Setting) error {

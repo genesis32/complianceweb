@@ -5,29 +5,11 @@ import (
 	"log"
 )
 
-const (
-	GcpAccount = "GCP"
-)
-
 type RegisteredResource struct {
 	ID          int64
 	DisplayName string
 	InternalKey string
 	Enabled     bool
-}
-
-type ServiceAccountCredentials struct {
-	OwningOrganizationID int64
-	Type                 string
-	Credentials          map[string]interface{}
-	RawCredentials       []byte
-}
-
-type User struct {
-	ID                    int64
-	DisplayName           string
-	CredentialValue       string
-	OwningOrganizationIDs []int64
 }
 
 type Organization struct {
@@ -36,23 +18,23 @@ type Organization struct {
 	Path        string
 	Users       []*OrganizationUser
 }
+
 type OrganizationUser struct {
 	ID            int64
 	DisplayName   string
 	Organizations []int64
 	Active        bool
+	UserRoles     UserRoleStore
+}
+
+type UserRole struct {
+	OrganizationID int64
+	RoleNames      []string
 }
 
 type Role struct {
 	ID          int64
 	DisplayName string
-	Permissions []*Permission
-}
-
-type Permission struct {
-	ID          int64
-	DisplayName string
-	Value       string
 }
 
 type Setting struct {

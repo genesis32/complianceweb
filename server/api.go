@@ -51,7 +51,7 @@ func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.Dao
 	var response BootstrapResponse
 	userId, inviteCode := daoHandler.CreateInviteForUser(0, bootstrapRequest.SystemAdminName)
 
-	daoHandler.AddRolesToUser(0, userId, []string{"System Admin"})
+	daoHandler.SetRolesToUser(0, userId, []string{"System Admin"})
 
 	response.InviteCode = inviteCode
 	response.Href = createInviteLink(configKeys[SystemBaseUrlConfigurationKey].Value, inviteCode, daoHandler)
@@ -170,7 +170,7 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 
 	userId, inviteCode := daoHandler.CreateInviteForUser(addRequest.ParentOrganizationID, addRequest.Name)
 
-	daoHandler.AddRolesToUser(addRequest.ParentOrganizationID, userId, []string{"Organization Admin"})
+	daoHandler.SetRolesToUser(addRequest.ParentOrganizationID, userId, []string{"Organization Admin"})
 
 	href := createInviteLink("", inviteCode, daoHandler)
 	r := &AddUserToOrganizationResponse{InviteCode: inviteCode, Href: href}
@@ -223,6 +223,54 @@ func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler 
 
 	settings := handler.LoadOrganizationMetadata(organizationID)
 	c.JSON(200, settings)
+}
+
+func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) {
+	var rolesUpdateRequest SetRolesForUserRequest
+
+	if err := c.ShouldBind(&rolesUpdateRequest); err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("roles update format: %s", err.Error()))
+		return
+	}
+
+	subject, _ := c.Get("authenticated_user_profile")
+	t := handler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+
+	userIDStr := c.Param("userID")
+	userID, _ := utils.StringToInt64(userIDStr)
+
+	for _, r := range rolesUpdateRequest.Roles {
+		// make sure the caller has permission to assign the role to this user.
+		hasPermission := handler.DoesUserHavePermission(t.ID, r.OrganizationID, OrganizationCreatePermission)
+		// TODO: Make sure the userID has visibility to this org? (It's at or below them in the tree?)
+		userCanView := handler.CanUserViewOrg(userID, r.OrganizationID)
+		if !hasPermission || !userCanView {
+			c.String(http.StatusUnauthorized, "not authorized")
+		}
+	}
+
+	for _, r := range rolesUpdateRequest.Roles {
+		handler.SetRolesToUser(r.OrganizationID, userID, r.RoleNames)
+	}
+}
+
+func UserApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) {
+	subject, _ := c.Get("authenticated_user_profile")
+	_ = handler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+
+	userIDStr := c.Param("userID")
+	userID, _ := utils.StringToInt64(userIDStr)
+
+	organizationUser := handler.LoadUserFromID(userID)
+	response := GetOrganizationUserResponse{ID: organizationUser.ID, DisplayName: organizationUser.DisplayName}
+	for orgID, roles := range organizationUser.UserRoles {
+		var roleNames []string
+		for _, r := range roles {
+			roleNames = append(roleNames, r.DisplayName)
+		}
+		response.Roles = append(response.Roles, UserOrgRoles{OrganizationID: orgID, RoleNames: roleNames})
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 /*

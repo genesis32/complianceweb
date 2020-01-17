@@ -132,7 +132,7 @@ func (s *Server) registerResourceApi(resourceAction resources.OrganizationResour
 			return
 		}
 
-		orgIDWithMetadata, metadata := s.Dao.LoadMetadataInTree(organizationID, "key")
+		orgIDWithMetadata, metadata := s.Dao.LoadMetadataInTree(organizationID, "gcpCredentials")
 		log.Printf("loaded orgid: %d metadata", orgIDWithMetadata)
 
 		params := resources.OperationParameters{}
@@ -208,6 +208,9 @@ func (s *Server) Serve() {
 		apiRoutes.GET("/organizations/:organizationID/metadata", s.registerWebApp(OrganizationMetadataApiGetHandler))
 
 		apiRoutes.POST("/users", s.registerWebApp(UserApiPostHandler))
+		apiRoutes.GET("/users/:userID", s.registerWebApp(UserApiGetHandler))
+
+		apiRoutes.PUT("/users/:userID/roles", s.registerWebApp(UserRoleApiPostHandler))
 	}
 
 	resourceRoutes := apiRoutes.Group("/resources/:organizationID")

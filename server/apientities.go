@@ -38,6 +38,12 @@ type OrganizationCreateResponse struct {
 	ID int64 `json:",string,omitempty"`
 }
 
+type GetOrganizationUserResponse struct {
+	ID          int64 `json:",string,omitempty"`
+	DisplayName string
+	Roles       []UserOrgRoles
+}
+
 type AddUserToOrganizationRequest struct {
 	Name                 string
 	ParentOrganizationID int64 `json:",string,omitempty"`
@@ -49,7 +55,17 @@ type AddUserToOrganizationResponse struct {
 	Href       string
 }
 
-type AssignRoleToUserRequest struct {
+type UserOrgRoles struct {
+	OrganizationID int64 `json:",string,omitempty"`
+	RoleNames      []string
+}
+
+type SetRolesForUserRequest struct {
+	Roles []UserOrgRoles
+}
+
+type RolesForUserResponse struct {
+	Roles []UserOrgRoles
 }
 
 type OrganizationMetadataUpdateRequest struct {
