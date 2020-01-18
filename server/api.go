@@ -70,14 +70,15 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 	subject, _ := c.Get("authenticated_user_profile")
 	t := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
 
-	// TODO: Add in test that user has visibility over a ParentOrganizationID
 	if createRequest.ParentOrganizationID != 0 {
+		// Make sure that user has visibility over a ParentOrganizationID
 		hasPermission := daoHandler.DoesUserHavePermission(t.ID, createRequest.ParentOrganizationID, OrganizationCreatePermission)
 		if !hasPermission {
 			c.String(http.StatusUnauthorized, "not authorized")
 			return
 		}
 	} else if createRequest.ParentOrganizationID == 0 {
+		// Only a person with system permission is allowed to create a root of a new tree
 		hasPermission := daoHandler.DoesUserHaveSystemPermission(t.ID, SystemOrganizationCreatePermission)
 		if !hasPermission {
 			c.String(http.StatusUnauthorized, "not authorized")
@@ -89,6 +90,7 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 	newOrg.ID = daoHandler.GetNextUniqueId()
 	newOrg.DisplayName = createRequest.Name
 
+	// TODO: Transaction?
 	daoHandler.CreateOrganization(&newOrg)
 
 	if createRequest.ParentOrganizationID != 0 {
@@ -113,9 +115,14 @@ func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandle
 		return
 	}
 
-	organization := daoHandler.LoadOrganizationDetails(organizationId)
+	var queryFlags uint
+	if daoHandler.DoesUserHavePermission(t.ID, organizationId, UserReadPermission) {
+		queryFlags |= dao.UserReadExecutePermissionFlag
+	}
 
-	// TODO: Put into a nice public version
+	organization := daoHandler.LoadOrganizationDetails(organizationId, queryFlags)
+
+	// TODO: Put into a nice public api response
 	c.JSON(http.StatusOK, organization)
 }
 
@@ -166,11 +173,29 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 		return
 	}
 
-	// TODO: Verify we have at least 1 role specified
+	subject, _ := c.Get("authenticated_user_profile")
+
+	t := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+
+	if len(addRequest.Roles) == 0 {
+		c.String(http.StatusBadRequest, "at least one role required")
+		return
+	}
+
+	if !daoHandler.HasValidRoles(addRequest.Roles) {
+		c.String(http.StatusBadRequest, "contains at least one invalid role")
+		return
+	}
+
+	hasPermission := daoHandler.DoesUserHavePermission(t.ID, addRequest.ParentOrganizationID, UserCreatePermission)
+	if !hasPermission {
+		c.String(http.StatusUnauthorized, "not authorized")
+		return
+	}
 
 	userId, inviteCode := daoHandler.CreateInviteForUser(addRequest.ParentOrganizationID, addRequest.Name)
 
-	daoHandler.SetRolesToUser(addRequest.ParentOrganizationID, userId, []string{"Organization Admin"})
+	daoHandler.SetRolesToUser(addRequest.ParentOrganizationID, userId, addRequest.Roles)
 
 	href := createInviteLink("", inviteCode, daoHandler)
 	r := &AddUserToOrganizationResponse{InviteCode: inviteCode, Href: href}
@@ -240,12 +265,20 @@ func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHand
 	userID, _ := utils.StringToInt64(userIDStr)
 
 	for _, r := range rolesUpdateRequest.Roles {
-		// make sure the caller has permission to assign the role to this user.
-		hasPermission := handler.DoesUserHavePermission(t.ID, r.OrganizationID, OrganizationCreatePermission)
-		// TODO: Make sure the userID has visibility to this org? (It's at or below them in the tree?)
+		// Make sure the userID has visibility to this org
 		userCanView := handler.CanUserViewOrg(userID, r.OrganizationID)
-		if !hasPermission || !userCanView {
+		if !userCanView {
 			c.String(http.StatusUnauthorized, "not authorized")
+		}
+		// Make sure the caller has permission to assign the role to this user.
+		hasPermission := handler.DoesUserHavePermission(t.ID, r.OrganizationID, UserUpdatePermission)
+		if !hasPermission {
+			c.String(http.StatusUnauthorized, "not authorized")
+		}
+		// Make sure all roles passed in are valid
+		if !handler.HasValidRoles(r.RoleNames) {
+			c.String(http.StatusBadRequest, "contains at least one invalid role.")
+			return
 		}
 	}
 
@@ -256,7 +289,7 @@ func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHand
 
 func UserApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) {
 	subject, _ := c.Get("authenticated_user_profile")
-	_ = handler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t := handler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
 
 	userIDStr := c.Param("userID")
 	userID, _ := utils.StringToInt64(userIDStr)
@@ -264,6 +297,10 @@ func UserApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, 
 	organizationUser := handler.LoadUserFromID(userID)
 	response := GetOrganizationUserResponse{ID: organizationUser.ID, DisplayName: organizationUser.DisplayName}
 	for orgID, roles := range organizationUser.UserRoles {
+		// don't return roles belonging to orgs the user isn't part of
+		if !handler.CanUserViewOrg(t.ID, orgID) {
+			continue
+		}
 		var roleNames []string
 		for _, r := range roles {
 			roleNames = append(roleNames, r.DisplayName)

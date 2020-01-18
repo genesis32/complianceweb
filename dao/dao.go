@@ -12,6 +12,10 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const (
+	UserReadExecutePermissionFlag = 1
+)
+
 type RegisteredResourcesStore map[string]*RegisteredResource
 type SettingsStore map[string]*Setting
 type UserRoleStore map[int64][]Role
@@ -29,7 +33,7 @@ type DaoHandler interface {
 	CreateOrganization(*Organization)
 	AssignOrganizationToParent(parentId, orgID int64) bool
 	LoadOrganizationsForUser(userID int64) map[int64]*Organization
-	LoadOrganizationDetails(organizationID int64) *Organization
+	LoadOrganizationDetails(organizationID int64, permissionFlags uint) *Organization
 
 	CreateInviteForUser(organizationId int64, name string) (int64, int64)
 
@@ -49,10 +53,31 @@ type DaoHandler interface {
 
 	SetRolesToUser(userID, organizationID int64, roleNames []string)
 	LoadEnabledResources() RegisteredResourcesStore
+
+	HasValidRoles(roles []string) bool
 }
 
 type Dao struct {
 	Db *sql.DB
+}
+
+func (d *Dao) HasValidRoles(roles []string) bool {
+	return true
+	sqlStatement := `
+		SELECT 
+			COUNT(1)
+		FROM
+			roles
+		WHERE
+			value IN $1
+`
+	var cnt int
+	row := d.Db.QueryRow(sqlStatement, roles)
+	err := row.Scan(&cnt)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return cnt == len(roles)
 }
 
 func (d *Dao) LoadUserFromID(id int64) *OrganizationUser {
@@ -392,7 +417,7 @@ func (d *Dao) GetNextUniqueId() int64 {
 	return rand.Int63()
 }
 
-func (d *Dao) LoadOrganizationDetails(organizationID int64) *Organization {
+func (d *Dao) LoadOrganizationDetails(organizationID int64, permissionFlags uint) *Organization {
 	ret := &Organization{}
 	{
 		sqlStatement := `
@@ -413,7 +438,7 @@ func (d *Dao) LoadOrganizationDetails(organizationID int64) *Organization {
 		}
 	}
 
-	{
+	if (permissionFlags & UserReadExecutePermissionFlag) == UserReadExecutePermissionFlag {
 		sqlStatement := `
 	SELECT 
 		id,display_name

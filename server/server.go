@@ -41,6 +41,10 @@ func initCookieKeys(daoHandler dao.DaoHandler) ([]byte, []byte) {
 	return authKey, encKey
 }
 
+func init() {
+	log.SetFlags(log.LstdFlags | log.Llongfile)
+}
+
 func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
 	ret := &ServerConfiguration{}
 
