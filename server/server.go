@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/genesis32/complianceweb/resources"
 
@@ -21,7 +22,7 @@ type Server struct {
 	Dao                 dao.DaoHandler
 	ResourceDao         dao.ResourceDaoHandler
 	SessionStore        sessions.Store
-	Authenticator       *auth.Authenticator
+	Authenticator       auth.Authenticator
 	router              *gin.Engine
 	registeredResources dao.RegisteredResourcesStore
 }
@@ -74,6 +75,7 @@ func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
 
 // NewServer returns a new server
 func NewServer() *Server {
+
 	daoHandler := dao.NewDaoHandler(nil)
 	daoHandler.Open()
 	daoHandler.TrySelect()
@@ -89,10 +91,13 @@ func NewServer() *Server {
 
 	callbackUrl := fmt.Sprintf("%s/webapp/callback", config.SystemBaseUrl)
 
-	authenticator, err := auth.NewAuthenticator(callbackUrl, config.OIDCIssuer, config.Auth0ClientID, config.Auth0ClientSecret)
-	if err != nil {
-		log.Fatal(err)
+	var authenticator auth.Authenticator
+	if v, ok := os.LookupEnv("ENV"); ok && v == "dev" {
+		authenticator = auth.NewTestAuthenticator()
+	} else {
+		authenticator = auth.NewAuth0Authenticator(callbackUrl, config.OIDCIssuer, config.Auth0ClientID, config.Auth0ClientSecret)
 	}
+
 	return &Server{Config: config, SessionStore: sessionStore, Dao: daoHandler, ResourceDao: resourceDaoHandler, Authenticator: authenticator}
 }
 

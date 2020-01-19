@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/genesis32/complianceweb/auth"
+
 	"github.com/genesis32/complianceweb/utils"
 
 	"github.com/coreos/go-oidc"
@@ -38,6 +40,12 @@ func InviteHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c
 }
 
 func LoginHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
+	var auth0Authenticator *auth.Auth0Authenticator
+	var ok bool
+	if auth0Authenticator, ok = s.Authenticator.(*auth.Auth0Authenticator); !ok {
+		log.Fatalf("Webforms only support Auth0Authenticator")
+	}
+
 	w := c.Writer
 	r := c.Request
 	// Generate random state
@@ -68,10 +76,16 @@ func LoginHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Co
 		return
 	}
 
-	http.Redirect(w, r, s.Authenticator.Config.AuthCodeURL(state), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, auth0Authenticator.Config.AuthCodeURL(state), http.StatusTemporaryRedirect)
 }
 
 func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
+	var auth0Authenticator *auth.Auth0Authenticator
+	var ok bool
+	if auth0Authenticator, ok = s.Authenticator.(*auth.Auth0Authenticator); !ok {
+		log.Fatalf("Webforms only support Auth0Authenticator")
+	}
+
 	w := c.Writer
 	r := c.Request
 
@@ -91,7 +105,7 @@ func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin
 		return
 	}
 
-	token, err := s.Authenticator.Config.Exchange(context.TODO(), r.URL.Query().Get("code"))
+	token, err := auth0Authenticator.Config.Exchange(context.TODO(), r.URL.Query().Get("code"))
 	if err != nil {
 		log.Printf("no token found: %v", err)
 		w.WriteHeader(http.StatusUnauthorized)
@@ -108,7 +122,7 @@ func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin
 		ClientID: settings[Auth0ClientIdConfigurationKey].Value,
 	}
 
-	idToken, err := s.Authenticator.Provider.Verifier(oidcConfig).Verify(context.TODO(), rawIDToken)
+	idToken, err := auth0Authenticator.Provider.Verifier(oidcConfig).Verify(context.TODO(), rawIDToken)
 
 	if err != nil {
 		http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)

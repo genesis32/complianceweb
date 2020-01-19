@@ -1,21 +1,19 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"math/rand"
+	"os"
 	"time"
 
-	"github.com/genesis32/complianceweb/server"
+	"github.com/genesis32/complianceweb/cmd"
 )
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	server := server.NewServer()
-	err := server.Startup()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer server.Shutdown()
 
-	server.Serve()
+	if err := cmd.RootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }

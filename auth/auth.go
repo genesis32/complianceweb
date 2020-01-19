@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"regexp"
 	"strings"
@@ -10,20 +11,68 @@ import (
 	"golang.org/x/oauth2"
 
 	oidc "github.com/coreos/go-oidc"
+	"github.com/dgrijalva/jwt-go"
 )
 
-type Authenticator struct {
+type OpenIDClaims map[string]interface{}
+
+type Authenticator interface {
+	ValidateAuthorizationHeader(headerValue string) (OpenIDClaims, error)
+}
+
+type TestAuthenticator struct {
+}
+
+type Auth0Authenticator struct {
 	Provider *oidc.Provider
 	Config   oauth2.Config
 	Ctx      context.Context
 	verifier *oidc.IDTokenVerifier
 }
 
-type OpenIDClaims map[string]interface{}
-
 var bearerRegex = regexp.MustCompile("[B|b]earer\\s+(\\S+)")
 
-func (a *Authenticator) ValidateAuthorizationHeader(headerValue string) (OpenIDClaims, error) {
+func (a *TestAuthenticator) ValidateAuthorizationHeader(headerValue string) (OpenIDClaims, error) {
+	log.Printf("proccesing token with TestAuthenticator")
+
+	hv := strings.TrimSpace(headerValue)
+
+	if hv == "" {
+		return nil, errors.New("headerValue is blank")
+	}
+
+	rs := bearerRegex.FindStringSubmatch(hv)
+	if rs == nil || len(rs) < 2 {
+		return nil, errors.New("cannot parse header")
+	}
+
+	hmacSecret := make([]byte, 64)
+	token, err := jwt.Parse(rs[1], func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+
+		return hmacSecret, nil
+	})
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		openIDClaims := make(OpenIDClaims)
+		for k, v := range claims {
+			openIDClaims[k] = v
+		}
+		return openIDClaims, nil
+	} else {
+		return nil, err
+	}
+}
+
+func NewTestAuthenticator() Authenticator {
+	log.Printf("WARNING USING A TEST AUTHENTICATOR")
+	return &TestAuthenticator{}
+}
+
+func (a *Auth0Authenticator) ValidateAuthorizationHeader(headerValue string) (OpenIDClaims, error) {
 
 	hv := strings.TrimSpace(headerValue)
 
@@ -51,13 +100,12 @@ func (a *Authenticator) ValidateAuthorizationHeader(headerValue string) (OpenIDC
 	return profile, nil
 }
 
-func NewAuthenticator(callbackUrl, issuerBaseUrl, auth0ClientID, auth0ClientSecret string) (*Authenticator, error) {
+func NewAuth0Authenticator(callbackUrl, issuerBaseUrl, auth0ClientID, auth0ClientSecret string) Authenticator {
 	ctx := context.Background()
 
 	provider, err := oidc.NewProvider(ctx, issuerBaseUrl)
 	if err != nil {
-		log.Printf("failed to get provider: %v", err)
-		return nil, err
+		log.Fatalf("Failed to get provider: %v", err)
 	}
 
 	conf := oauth2.Config{
@@ -75,10 +123,10 @@ func NewAuthenticator(callbackUrl, issuerBaseUrl, auth0ClientID, auth0ClientSecr
 
 	theVerifier := provider.Verifier(oidcConfig)
 
-	return &Authenticator{
+	return &Auth0Authenticator{
 		Provider: provider,
 		Config:   conf,
 		Ctx:      ctx,
 		verifier: theVerifier,
-	}, nil
+	}
 }
