@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/dgrijalva/jwt-go"
 
@@ -56,12 +55,9 @@ var RootCmd = &cobra.Command{
 	Use: "server",
 	Run: func(cmd *cobra.Command, args []string) {
 		server := server.NewServer()
-		err := server.Startup()
-		if err != nil {
-			log.Fatal(err)
-		}
 		defer server.Shutdown()
 
+		server.Initialize()
 		server.Serve()
 	},
 }

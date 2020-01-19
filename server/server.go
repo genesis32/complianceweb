@@ -101,16 +101,6 @@ func NewServer() *Server {
 	return &Server{Config: config, SessionStore: sessionStore, Dao: daoHandler, ResourceDao: resourceDaoHandler, Authenticator: authenticator}
 }
 
-// Startup the server
-func (s *Server) Startup() error {
-	gob.Register(map[string]interface{}{})
-	gob.Register(&dao.OrganizationUser{})
-
-	s.registeredResources = s.Dao.LoadEnabledResources()
-
-	return nil
-}
-
 // Shutdown the server
 func (s *Server) Shutdown() error {
 	err := s.Dao.Close()
@@ -183,8 +173,13 @@ func validOIDCTokenRequired(s *Server) gin.HandlerFunc {
 	}
 }
 
-// Serve the traffic
-func (s *Server) Serve() {
+func (s *Server) Initialize() *gin.Engine {
+
+	gob.Register(map[string]interface{}{})
+	gob.Register(&dao.OrganizationUser{})
+
+	s.registeredResources = s.Dao.LoadEnabledResources()
+
 	s.router = gin.Default()
 	s.router.MaxMultipartMemory = 8 << 20 // 8 MiB
 	s.router.Static("/static", "./static")
@@ -236,5 +231,10 @@ func (s *Server) Serve() {
 		c.Redirect(301, "/webapp/")
 	})
 
+	return s.router
+}
+
+// Serve the traffic
+func (s *Server) Serve() {
 	s.router.Run()
 }
