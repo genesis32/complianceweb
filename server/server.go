@@ -4,8 +4,10 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/genesis32/complianceweb/resources"
 
@@ -75,6 +77,7 @@ func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
 
 // NewServer returns a new server
 func NewServer() *Server {
+	rand.Seed(time.Now().UnixNano())
 
 	daoHandler := dao.NewDaoHandler(nil)
 	daoHandler.Open()
@@ -119,7 +122,7 @@ func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
 func (s *Server) registerResourceApi(resourceAction resources.OrganizationResourceAction, fn resourceApiFunc) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		subject, _ := c.Get("authenticated_user_profile")
-		userInfo := s.Dao.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+		userInfo := s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 		organizationID, _ := utils.StringToInt64(c.Param("organizationID"))
 		hasPermission := s.Dao.DoesUserHavePermission(userInfo.ID, organizationID, resourceAction.PermissionName())

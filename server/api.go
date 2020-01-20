@@ -7,7 +7,6 @@ import (
 
 	"github.com/genesis32/complianceweb/utils"
 
-	"github.com/genesis32/complianceweb/auth"
 	"github.com/genesis32/complianceweb/dao"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
@@ -68,7 +67,7 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 	}
 
 	subject, _ := c.Get("authenticated_user_profile")
-	t := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	if createRequest.ParentOrganizationID != 0 {
 		// Make sure that user has visibility over a ParentOrganizationID
@@ -87,7 +86,7 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 	}
 
 	var newOrg dao.Organization
-	newOrg.ID = daoHandler.GetNextUniqueId()
+	newOrg.ID = utils.GetNextUniqueId()
 	newOrg.DisplayName = createRequest.Name
 
 	// TODO: Transaction?
@@ -104,7 +103,7 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 
 func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 	subject, _ := c.Get("authenticated_user_profile")
-	t := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	organizationIdStr := c.Param("organizationID")
 	organizationId, _ := utils.StringToInt64(organizationIdStr)
@@ -129,7 +128,7 @@ func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandle
 func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
 	subject, _ := c.Get("authenticated_user_profile")
 
-	t := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	organizations := daoHandler.LoadOrganizationsForUser(t.ID)
 	if len(organizations) == 0 {
@@ -175,7 +174,7 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 
 	subject, _ := c.Get("authenticated_user_profile")
 
-	t := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	if len(addRequest.Roles) == 0 {
 		c.String(http.StatusBadRequest, "at least one role required")
@@ -211,7 +210,7 @@ func OrganizationMetadataApiPutHandler(s *Server, store sessions.Store, handler 
 	}
 
 	subject, _ := c.Get("authenticated_user_profile")
-	t := handler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t := handler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	organizationIDStr := c.Param("organizationID")
 	organizationID, _ := utils.StringToInt64(organizationIDStr)
@@ -234,7 +233,7 @@ func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler 
 	}
 
 	subject, _ := c.Get("authenticated_user_profile")
-	t := handler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t := handler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	organizationIDStr := c.Param("organizationID")
 	organizationID, _ := utils.StringToInt64(organizationIDStr)
@@ -259,7 +258,7 @@ func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHand
 	}
 
 	subject, _ := c.Get("authenticated_user_profile")
-	t := handler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t := handler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	userIDStr := c.Param("userID")
 	userID, _ := utils.StringToInt64(userIDStr)
@@ -289,7 +288,7 @@ func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHand
 
 func UserApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) {
 	subject, _ := c.Get("authenticated_user_profile")
-	t := handler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t := handler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	userIDStr := c.Param("userID")
 	userID, _ := utils.StringToInt64(userIDStr)
@@ -320,7 +319,7 @@ func UserCreateGcpServiceAccountApiPostHandler(s *Server, store sessions.Store, 
 	}
 
 	subject, _ := c.Get("authenticated_user_profile")
-	t, _ := daoHandler.LoadUserFromCredential(subject.(auth.OpenIDClaims)["sub"].(string))
+	t, _ := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	canView, _ := daoHandler.CanUserViewOrg(t.ID, serviceAccountRequest.OwningOrganizationID)
 

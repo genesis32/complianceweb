@@ -3,21 +3,19 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"regexp"
 	"strings"
 
+	"github.com/genesis32/complianceweb/utils"
+
 	"golang.org/x/oauth2"
 
 	oidc "github.com/coreos/go-oidc"
-	"github.com/dgrijalva/jwt-go"
 )
 
-type OpenIDClaims map[string]interface{}
-
 type Authenticator interface {
-	ValidateAuthorizationHeader(headerValue string) (OpenIDClaims, error)
+	ValidateAuthorizationHeader(headerValue string) (utils.OpenIDClaims, error)
 }
 
 type TestAuthenticator struct {
@@ -32,7 +30,7 @@ type Auth0Authenticator struct {
 
 var bearerRegex = regexp.MustCompile("[B|b]earer\\s+(\\S+)")
 
-func (a *TestAuthenticator) ValidateAuthorizationHeader(headerValue string) (OpenIDClaims, error) {
+func (a *TestAuthenticator) ValidateAuthorizationHeader(headerValue string) (utils.OpenIDClaims, error) {
 	log.Printf("proccesing token with TestAuthenticator")
 
 	hv := strings.TrimSpace(headerValue)
@@ -47,24 +45,8 @@ func (a *TestAuthenticator) ValidateAuthorizationHeader(headerValue string) (Ope
 	}
 
 	hmacSecret := make([]byte, 64)
-	token, err := jwt.Parse(rs[1], func(token *jwt.Token) (interface{}, error) {
-		// Don't forget to validate the alg is what you expect:
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-		}
-
-		return hmacSecret, nil
-	})
-
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		openIDClaims := make(OpenIDClaims)
-		for k, v := range claims {
-			openIDClaims[k] = v
-		}
-		return openIDClaims, nil
-	} else {
-		return nil, err
-	}
+	claims := utils.ParseTestJwt(rs[1], hmacSecret)
+	return claims, nil
 }
 
 func NewTestAuthenticator() Authenticator {
@@ -72,7 +54,7 @@ func NewTestAuthenticator() Authenticator {
 	return &TestAuthenticator{}
 }
 
-func (a *Auth0Authenticator) ValidateAuthorizationHeader(headerValue string) (OpenIDClaims, error) {
+func (a *Auth0Authenticator) ValidateAuthorizationHeader(headerValue string) (utils.OpenIDClaims, error) {
 
 	hv := strings.TrimSpace(headerValue)
 

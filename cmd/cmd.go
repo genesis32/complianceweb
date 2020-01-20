@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/genesis32/complianceweb/utils"
 
 	"github.com/genesis32/complianceweb/server"
 	"github.com/spf13/cobra"
@@ -24,30 +24,9 @@ var GenerateJwtCommand = &cobra.Command{
 			panic(err)
 		}
 
-		fmt.Println("sub:", sub)
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"given_name":  "John",
-			"family_name": "Smith",
-			"nickname":    "jsmith",
-			"name":        "John Smith",
-			"picture":     "https://lh3.googleusercontent.com/a-/AAuE7mCY2TSqk_4WBFHXLzi-GX_ircRYCFGwzoYMDVFF3eU",
-			"locale":      "en",
-			"updated_at":  "2020-01-19T01:11:51.254Z",
-			"iss":         "https://issuer",
-			"sub":         sub,
-			"aud":         "foo",
-			"iat":         1579396311,
-			"exp":         1879432311,
-		})
+		ret := utils.GenerateTestJwt(sub)
 
-		// Just sign this thing with a blank key (all 0s)
-		key := make([]byte, 64)
-		foobar, err := token.SignedString(key)
-		if err != nil {
-			panic(err)
-		}
-
-		fmt.Println(foobar)
+		fmt.Println(ret)
 	},
 }
 

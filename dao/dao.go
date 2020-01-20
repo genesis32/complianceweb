@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
+
+	"github.com/genesis32/complianceweb/utils"
 
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
@@ -24,7 +25,6 @@ type DaoHandler interface {
 	Open()
 	Close() error
 	TrySelect()
-	GetNextUniqueId() int64
 
 	LoadMetadataInTree(organizationId int64, key string) (int64, OrganizationMetadata)
 	LoadOrganizationMetadata(organizationID int64) OrganizationMetadata
@@ -413,10 +413,6 @@ func (d *Dao) Open() {
 	}
 }
 
-func (d *Dao) GetNextUniqueId() int64 {
-	return rand.Int63()
-}
-
 func (d *Dao) LoadOrganizationDetails(organizationID int64, permissionFlags uint) *Organization {
 	ret := &Organization{}
 	{
@@ -550,8 +546,8 @@ func (d *Dao) LoadUserFromInviteCode(inviteCode int64) *OrganizationUser {
 
 func (d *Dao) CreateInviteForUser(organizationId int64, name string) (int64, int64) {
 	var err error
-	orgUserID := d.GetNextUniqueId()
-	inviteCode := d.GetNextUniqueId()
+	orgUserID := utils.GetNextUniqueId()
+	inviteCode := utils.GetNextUniqueId()
 
 	sqlStatement := `
 		INSERT INTO organization_user (id, display_name, invite_code, created_timestamp, current_state)
