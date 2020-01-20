@@ -42,13 +42,19 @@ func createJsonRequest(data map[string]interface{}) io.ReadCloser {
 	return ioutil.NopCloser(bytes.NewReader(ret))
 }
 
+func addJsonBody(req *http.Request, jsonMap map[string]interface{}) {
+	req.Header["Content-Type"] = append(req.Header["Content-Type"], "application/json")
+	req.Body = createJsonRequest(jsonMap)
+}
+
 func testBootstrap(server *httptest.Server) func(t *testing.T) {
 	return func(t *testing.T) {
 		cl := server.Client()
 		req := createBaseRequest(t, server, fixedJwts[0], "POST", "/system/bootstrap")
+
 		jsonReq := make(map[string]interface{})
 		jsonReq["SystemAdminName"] = "SystemAdmin0"
-		req.Body = createJsonRequest(jsonReq)
+		addJsonBody(req, jsonReq)
 
 		resp, err := cl.Do(req)
 		if err != nil {
@@ -79,7 +85,7 @@ func testCreateRootOrg(server *httptest.Server) func(t *testing.T) {
 			req := createBaseRequest(t, server, systemAdminJwt, "POST", "/api/organizations")
 			jsonReq := make(map[string]interface{})
 			jsonReq["Name"] = "RootOrg1024"
-			req.Body = createJsonRequest(jsonReq)
+			addJsonBody(req, jsonReq)
 
 			resp, err := cl.Do(req)
 			if err != nil {

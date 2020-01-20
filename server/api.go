@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -85,6 +86,7 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 		}
 	}
 
+	log.Printf("creating organization: %s\n", createRequest.Name)
 	var newOrg dao.Organization
 	newOrg.ID = utils.GetNextUniqueId()
 	newOrg.DisplayName = createRequest.Name

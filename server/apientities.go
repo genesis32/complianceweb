@@ -28,10 +28,8 @@ type GcpServiceAccountCreateResponse struct {
 }
 
 type OrganizationCreateRequest struct {
-	ParentOrganizationID  int64 `json:",string,omitempty"`
-	Name                  string
-	AccountCredentialType string
-	AccountCredential     string
+	ParentOrganizationID int64 `json:",string,omitempty"`
+	Name                 string
 }
 
 type OrganizationCreateResponse struct {
