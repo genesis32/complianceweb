@@ -49,7 +49,7 @@ func (a *TestAuthenticator) ValidateAuthorizationHeader(headerValue string) (uti
 }
 
 func NewTestAuthenticator() Authenticator {
-	log.Printf("WARNING USING A TEST AUTHENTICATOR")
+	log.Printf("WARNING USING A TEST AUTHENTICATOR THAT ONLY SUPPORTS HS256")
 	return &TestAuthenticator{}
 }
 

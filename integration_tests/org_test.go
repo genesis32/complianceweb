@@ -48,7 +48,8 @@ func testBootstrap(baseServer *server.Server, server *httptest.Server) func(t *t
 func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
 	return func(t *testing.T) {
 		cl := server.Client()
-		var organizationID string
+		var organizationID0, organizationID1 string
+		// Create a base organization
 		{
 			req := createBaseRequest(t, server, systemAdminJwt, "POST", "/api/organizations")
 			jsonReq := make(map[string]interface{})
@@ -64,14 +65,33 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 			}
 			var jsonResp genericJson
 			json.NewDecoder(resp.Body).Decode(&jsonResp)
-			organizationID = jsonResp["ID"].(string)
+			organizationID0 = jsonResp["ID"].(string)
 		}
 
 		{
+			req := createBaseRequest(t, server, systemAdminJwt, "POST", "/api/organizations")
+			jsonReq := make(map[string]interface{})
+			jsonReq["Name"] = "RootOrg2048"
+			addJsonBody(req, jsonReq)
+
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusCreated {
+				t.Fatalf("statuscode expected: StatusCreated got: %d", resp.StatusCode)
+			}
+			var jsonResp genericJson
+			json.NewDecoder(resp.Body).Decode(&jsonResp)
+			organizationID1 = jsonResp["ID"].(string)
+		}
+
+		// Create the first normal user of Organization1024
+		{
 			req := createBaseRequest(t, server, systemAdminJwt, "POST", "/api/users")
 			jsonReq := make(map[string]interface{})
-			jsonReq["Name"] = "TestUser0-" + organizationID
-			jsonReq["ParentOrganizationID"] = organizationID
+			jsonReq["Name"] = "TestUser0-" + organizationID0
+			jsonReq["ParentOrganizationID"] = organizationID0
 			jsonReq["RoleNames"] = []string{"Organization Admin"}
 			addJsonBody(req, jsonReq)
 
@@ -81,7 +101,7 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 			}
 
 			if resp.StatusCode != http.StatusCreated {
-				t.Fatalf("creating user0 - statuscode expected: StatusOK got: %d", resp.StatusCode)
+				t.Fatalf("creating user0 - statuscode expected: StatusCreated got: %d", resp.StatusCode)
 			}
 
 			var jsonResp genericJson
@@ -89,6 +109,40 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 			inviteCode := jsonResp["InviteCode"].(string)
 
 			user0Jwt = simulateLogin(baseServer.Dao, inviteCode)
+		}
+
+		// create an organization in the other tree (should fail)
+		{
+			req := createBaseRequest(t, server, user0Jwt, "POST", "/api/organizations")
+			jsonReq := make(map[string]interface{})
+			jsonReq["ParentOrganizationID"] = organizationID1
+			jsonReq["Name"] = "RootOrg2048-0"
+			addJsonBody(req, jsonReq)
+
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusUnauthorized {
+				t.Fatalf("statuscode expected: StatusUnauthorized got: %d", resp.StatusCode)
+			}
+		}
+
+		// create an organization under the one the user is an admin for.
+		{
+			req := createBaseRequest(t, server, user0Jwt, "POST", "/api/organizations")
+			jsonReq := make(map[string]interface{})
+			jsonReq["ParentOrganizationID"] = organizationID0
+			jsonReq["Name"] = "RootOrg1024-0"
+			addJsonBody(req, jsonReq)
+
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusCreated {
+				t.Fatalf("statuscode expected: StatusCreated got: %d", resp.StatusCode)
+			}
 		}
 	}
 }
