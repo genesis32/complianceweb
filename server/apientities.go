@@ -45,7 +45,7 @@ type GetOrganizationUserResponse struct {
 type AddUserToOrganizationRequest struct {
 	Name                 string
 	ParentOrganizationID int64 `json:",string,omitempty"`
-	Roles                []string
+	RoleNames            []string
 }
 
 type AddUserToOrganizationResponse struct {

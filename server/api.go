@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
@@ -86,7 +85,6 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 		}
 	}
 
-	log.Printf("creating organization: %s\n", createRequest.Name)
 	var newOrg dao.Organization
 	newOrg.ID = utils.GetNextUniqueId()
 	newOrg.DisplayName = createRequest.Name
@@ -178,29 +176,33 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 
 	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
-	if len(addRequest.Roles) == 0 {
+	if len(addRequest.RoleNames) == 0 {
 		c.String(http.StatusBadRequest, "at least one role required")
 		return
 	}
 
-	if !daoHandler.HasValidRoles(addRequest.Roles) {
+	if !daoHandler.HasValidRoles(addRequest.RoleNames) {
 		c.String(http.StatusBadRequest, "contains at least one invalid role")
 		return
 	}
 
 	hasPermission := daoHandler.DoesUserHavePermission(t.ID, addRequest.ParentOrganizationID, UserCreatePermission)
 	if !hasPermission {
-		c.String(http.StatusUnauthorized, "not authorized")
-		return
+		// Are they a sys-admin?
+		hasPermission = daoHandler.DoesUserHaveSystemPermission(t.ID, SystemUserCreatePermission)
+		if !hasPermission {
+			c.String(http.StatusUnauthorized, "not authorized")
+			return
+		}
 	}
 
 	userId, inviteCode := daoHandler.CreateInviteForUser(addRequest.ParentOrganizationID, addRequest.Name)
 
-	daoHandler.SetRolesToUser(addRequest.ParentOrganizationID, userId, addRequest.Roles)
+	daoHandler.SetRolesToUser(addRequest.ParentOrganizationID, userId, addRequest.RoleNames)
 
 	href := createInviteLink("", inviteCode, daoHandler)
 	r := &AddUserToOrganizationResponse{InviteCode: inviteCode, Href: href}
-	c.JSON(200, r)
+	c.JSON(http.StatusCreated, r)
 }
 
 func OrganizationMetadataApiPutHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) {

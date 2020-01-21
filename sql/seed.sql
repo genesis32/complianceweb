@@ -6,6 +6,7 @@ INSERT INTO permission VALUES (5, 'gcp service account create', 'gcp.serviceacco
 INSERT INTO permission VALUES (6, 'system organization create', 'system.organization.create.execute')
 INSERT INTO permission VALUES (7, 'user update', 'user.update.execute');
 INSERT INTO permission VALUES (8, 'user update', 'user.read.execute');
+INSERT INTO permission VALUES (9, 'system user create', 'system.user.create.execute');
 
 INSERT INTO role VALUES (2, 'Organization Admin');
 INSERT INTO role_permission_xref VALUES (2,(SELECT id FROM permission WHERE value = 'serviceaccount.create.execute'));
@@ -17,6 +18,7 @@ INSERT INTO role_permission_xref VALUES (2,(SELECT id FROM permission WHERE valu
 INSERT INTO role VALUES (3, 'System Admin');
 INSERT INTO role_permission_xref VALUES (3,(SELECT id FROM permission WHERE value = 'system.update.execute'));
 INSERT INTO role_permission_xref VALUES (3,(SELECT id FROM permission WHERE value = 'system.organization.create.execute'));
+INSERT INTO role_permission_xref VALUES (3,(SELECT id FROM permission WHERE value = 'system.user.create.execute'));
 
 INSERT INTO role VALUES (4, 'GCP Administrator');
 INSERT INTO role_permission_xref VALUES (4,(SELECT id FROM permission WHERE value = 'gcp.serviceaccount.write.execute'));

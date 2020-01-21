@@ -31,7 +31,6 @@ type Auth0Authenticator struct {
 var bearerRegex = regexp.MustCompile("[B|b]earer\\s+(\\S+)")
 
 func (a *TestAuthenticator) ValidateAuthorizationHeader(headerValue string) (utils.OpenIDClaims, error) {
-	log.Printf("proccesing token with TestAuthenticator")
 
 	hv := strings.TrimSpace(headerValue)
 
