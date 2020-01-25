@@ -17,6 +17,7 @@ type genericJson map[string]interface{}
 var initialUserJwtFiles = []string{"data/105843250540508297717.txt"}
 var fixedJwts []string
 var systemAdminJwt string
+var orgAdminJwt string
 var user0Jwt string
 
 func testBootstrap(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
@@ -68,6 +69,7 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 			organizationID0 = jsonResp["ID"].(string)
 		}
 
+		// create a second organization tree
 		{
 			req := createBaseRequest(t, server, systemAdminJwt, "POST", "/api/organizations")
 			jsonReq := make(map[string]interface{})
@@ -86,11 +88,11 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 			organizationID1 = jsonResp["ID"].(string)
 		}
 
-		// Create the first normal user of Organization1024
+		// Create the first admin user of Organization1024 - user0
 		{
 			req := createBaseRequest(t, server, systemAdminJwt, "POST", "/api/users")
 			jsonReq := make(map[string]interface{})
-			jsonReq["Name"] = "TestUser0-" + organizationID0
+			jsonReq["Name"] = "OrgAdmin0-" + organizationID0
 			jsonReq["ParentOrganizationID"] = organizationID0
 			jsonReq["RoleNames"] = []string{"Organization Admin"}
 			addJsonBody(req, jsonReq)
@@ -108,12 +110,12 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 			json.NewDecoder(resp.Body).Decode(&jsonResp)
 			inviteCode := jsonResp["InviteCode"].(string)
 
-			user0Jwt = simulateLogin(baseServer.Dao, inviteCode)
+			orgAdminJwt = simulateLogin(baseServer.Dao, inviteCode)
 		}
 
-		// create an organization in the other tree (should fail)
+		// user0 create an organization in the other tree (should fail)
 		{
-			req := createBaseRequest(t, server, user0Jwt, "POST", "/api/organizations")
+			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/organizations")
 			jsonReq := make(map[string]interface{})
 			jsonReq["ParentOrganizationID"] = organizationID1
 			jsonReq["Name"] = "RootOrg2048-0"
@@ -130,7 +132,7 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 
 		// create an organization under the one the user is an admin for.
 		{
-			req := createBaseRequest(t, server, user0Jwt, "POST", "/api/organizations")
+			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/organizations")
 			jsonReq := make(map[string]interface{})
 			jsonReq["ParentOrganizationID"] = organizationID0
 			jsonReq["Name"] = "RootOrg1024-0"
@@ -144,6 +146,49 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 				t.Fatalf("statuscode expected: StatusCreated got: %d", resp.StatusCode)
 			}
 		}
+
+		// create a user with just a gcp admin role
+		{
+			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/users")
+			jsonReq := make(map[string]interface{})
+			jsonReq["Name"] = "GCPAdminUser0-" + organizationID0
+			jsonReq["ParentOrganizationID"] = organizationID0
+			jsonReq["RoleNames"] = []string{"GCP Administrator"}
+			addJsonBody(req, jsonReq)
+
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusCreated {
+				t.Fatalf("statuscode expected: StatusCreated got: %d", resp.StatusCode)
+			}
+			var jsonResp genericJson
+			json.NewDecoder(resp.Body).Decode(&jsonResp)
+			inviteCode := jsonResp["InviteCode"].(string)
+
+			user0Jwt = simulateLogin(baseServer.Dao, inviteCode)
+		}
+
+		// user with just a gcp role is now trying to create a user in their org (it should fail)
+		{
+			req := createBaseRequest(t, server, user0Jwt, "POST", "/api/users")
+			jsonReq := make(map[string]interface{})
+			jsonReq["Name"] = "TestUser1-" + organizationID0
+			jsonReq["ParentOrganizationID"] = organizationID0
+			jsonReq["RoleNames"] = []string{"GCP Administrator"}
+			addJsonBody(req, jsonReq)
+
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusUnauthorized {
+				bodyBytes, _ := ioutil.ReadAll(resp.Body)
+				t.Fatalf("statuscode expected: Unauthorized got: %d body: %v", resp.StatusCode, string(bodyBytes))
+			}
+		}
+
 	}
 }
 

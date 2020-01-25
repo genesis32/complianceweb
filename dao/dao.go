@@ -300,6 +300,7 @@ func (d *Dao) DoesUserHavePermission(userID, organizationID int64, permission st
 				AND role_id IN 
 				(SELECT r.id FROM role r, permission p, role_permission_xref rpx WHERE
 				p.id = rpx.permission_id AND r.id = rpx.role_id AND p.value = $3))
+				AND organization_user_id = $1
 `
 	var count int
 	row := d.Db.QueryRow(sqlStatement, userID, organizationID, permission)
