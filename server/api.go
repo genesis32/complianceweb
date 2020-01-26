@@ -248,6 +248,7 @@ func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler 
 	organizationIDStr := c.Param("organizationID")
 	organizationID, _ := utils.StringToInt64(organizationIDStr)
 
+	// TODO: Should we bound this by a permission?
 	hasPermission := handler.CanUserViewOrg(t.ID, organizationID)
 	if !hasPermission {
 		c.String(http.StatusUnauthorized, "not authorized")
@@ -255,9 +256,16 @@ func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler 
 	}
 
 	metadata := handler.LoadOrganizationMetadata(organizationID)
+
+	response := &OrganizationMetadataResponse{Metadata: metadata}
+
 	// TODO: Make this into another object
-	c.JSON(200, metadata)
-	return nil
+	c.JSON(200, response)
+
+	auditRecord := &OperationResult{}
+	auditRecord.AuditHumanReadable = fmt.Sprintf("read metadata for organization: %d", organizationID)
+
+	return auditRecord
 }
 
 func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *OperationResult {

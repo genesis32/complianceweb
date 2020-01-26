@@ -69,3 +69,7 @@ type RolesForUserResponse struct {
 type OrganizationMetadataUpdateRequest struct {
 	Metadata map[string]interface{}
 }
+
+type OrganizationMetadataResponse struct {
+	Metadata map[string]interface{}
+}

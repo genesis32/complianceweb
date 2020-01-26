@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/genesis32/complianceweb/dao"
-
 	"github.com/genesis32/complianceweb/server"
 )
 
@@ -390,14 +388,13 @@ func testUpdateOrganizationMetadata(baseServer *server.Server, s *httptest.Serve
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("statuscode expected: StatusOK got: %d", resp.StatusCode)
 			}
-			var respData dao.OrganizationMetadata
-			json.NewDecoder(resp.Body).Decode(&respData)
-			metadataValue := respData["foo"].(string)
+			var response server.OrganizationMetadataResponse
+			json.NewDecoder(resp.Body).Decode(&response)
+			metadataValue := response.Metadata["foo"].(string)
 			if metadataValue != "bar" {
 				t.Fatalf("metadata: %v does not match", metadataValue)
 			}
 		}
-
 	}
 }
 
