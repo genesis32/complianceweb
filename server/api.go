@@ -33,18 +33,18 @@ func contains(n *UserOrganizationResponse, children []*UserOrganizationResponse)
 	return false
 }
 
-func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *OperationResult {
 
 	configKeys := daoHandler.GetSettings(BootstrapConfigurationKey, SystemBaseUrlConfigurationKey)
 	if len(configKeys) == 0 || configKeys[BootstrapConfigurationKey].Value != "true" {
 		c.String(http.StatusMethodNotAllowed, fmt.Sprintf("not allowed"))
-		return
+		return nil
 	}
 
 	var bootstrapRequest BootstrapRequest
 	if err := c.ShouldBind(&bootstrapRequest); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("bootstrap binding: %s", err.Error()))
-		return
+		return nil
 	}
 
 	var response BootstrapResponse
@@ -56,14 +56,15 @@ func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.Dao
 	response.Href = createInviteLink(configKeys[SystemBaseUrlConfigurationKey].Value, inviteCode, daoHandler)
 
 	c.JSON(200, response)
+	return nil
 }
 
-func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *OperationResult {
 
 	var createRequest OrganizationCreateRequest
 	if err := c.ShouldBind(&createRequest); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("binding: %s", err.Error()))
-		return
+		return nil
 	}
 
 	subject, _ := c.Get("authenticated_user_profile")
@@ -74,14 +75,14 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 		hasPermission := daoHandler.DoesUserHavePermission(t.ID, createRequest.ParentOrganizationID, OrganizationCreatePermission)
 		if !hasPermission {
 			c.String(http.StatusUnauthorized, "not authorized")
-			return
+			return nil
 		}
 	} else if createRequest.ParentOrganizationID == 0 {
 		// Only a person with system permission is allowed to create a root of a new tree
 		hasPermission := daoHandler.DoesUserHaveSystemPermission(t.ID, SystemOrganizationCreatePermission)
 		if !hasPermission {
 			c.String(http.StatusUnauthorized, "not authorized")
-			return
+			return nil
 		}
 	}
 
@@ -99,9 +100,10 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 	createResponse := &OrganizationCreateResponse{}
 	createResponse.ID = newOrg.ID
 	c.JSON(201, createResponse)
+	return nil
 }
 
-func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *OperationResult {
 	subject, _ := c.Get("authenticated_user_profile")
 	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
@@ -111,7 +113,7 @@ func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandle
 	canView := daoHandler.CanUserViewOrg(t.ID, organizationId)
 	if !canView {
 		c.String(http.StatusUnauthorized, "not authorized")
-		return
+		return nil
 	}
 
 	var queryFlags uint
@@ -123,9 +125,10 @@ func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandle
 
 	// TODO: Put into a nice public api response
 	c.JSON(http.StatusOK, organization)
+	return nil
 }
 
-func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *OperationResult {
 	subject, _ := c.Get("authenticated_user_profile")
 
 	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
@@ -133,7 +136,7 @@ func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.D
 	organizations := daoHandler.LoadOrganizationsForUser(t.ID)
 	if len(organizations) == 0 {
 		c.String(http.StatusBadRequest, "no organizations")
-		return
+		return nil
 	}
 
 	orgTreeRep := make(map[int64]*UserOrganizationResponse)
@@ -162,14 +165,15 @@ func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.D
 	treeRoot := orgTreeRep[t.Organizations[0]]
 
 	c.JSON(http.StatusOK, treeRoot)
+	return nil
 }
 
-func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *OperationResult {
 	var addRequest AddUserToOrganizationRequest
 
 	if err := c.ShouldBind(&addRequest); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("upload format: %s", err.Error()))
-		return
+		return nil
 	}
 
 	subject, _ := c.Get("authenticated_user_profile")
@@ -178,12 +182,12 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 
 	if len(addRequest.RoleNames) == 0 {
 		c.String(http.StatusBadRequest, "at least one role required")
-		return
+		return nil
 	}
 
 	if !daoHandler.HasValidRoles(addRequest.RoleNames) {
 		c.String(http.StatusBadRequest, "needs to contain all valid roles")
-		return
+		return nil
 	}
 
 	hasPermission := daoHandler.DoesUserHavePermission(t.ID, addRequest.ParentOrganizationID, UserCreatePermission)
@@ -192,7 +196,7 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 		hasPermission = daoHandler.DoesUserHaveSystemPermission(t.ID, SystemUserCreatePermission)
 		if !hasPermission {
 			c.String(http.StatusUnauthorized, "not authorized")
-			return
+			return nil
 		}
 	}
 
@@ -203,14 +207,15 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 	href := createInviteLink("", inviteCode, daoHandler)
 	r := &AddUserToOrganizationResponse{InviteCode: inviteCode, Href: href}
 	c.JSON(http.StatusCreated, r)
+	return nil
 }
 
-func OrganizationMetadataApiPutHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) {
+func OrganizationMetadataApiPutHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *OperationResult {
 	var metadataUpdateRequest OrganizationMetadataUpdateRequest
 
 	if err := c.ShouldBind(&metadataUpdateRequest); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("metadata format: %s", err.Error()))
-		return
+		return nil
 	}
 
 	subject, _ := c.Get("authenticated_user_profile")
@@ -222,18 +227,19 @@ func OrganizationMetadataApiPutHandler(s *Server, store sessions.Store, handler 
 	hasPermission := handler.DoesUserHavePermission(t.ID, organizationID, OrganizationCreatePermission)
 	if !hasPermission {
 		c.String(http.StatusUnauthorized, "not authorized")
-		return
+		return nil
 	}
 
 	handler.UpdateOrganizationMetadata(organizationID, metadataUpdateRequest.Metadata)
+	return nil
 }
 
-func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) {
+func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *OperationResult {
 	var metadataUpdateRequest OrganizationMetadataUpdateRequest
 
 	if err := c.ShouldBind(&metadataUpdateRequest); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("metadata format: %s", err.Error()))
-		return
+		return nil
 	}
 
 	subject, _ := c.Get("authenticated_user_profile")
@@ -246,19 +252,20 @@ func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler 
 	hasPermission := handler.DoesUserHavePermission(t.ID, organizationID, OrganizationCreatePermission)
 	if !hasPermission {
 		c.String(http.StatusUnauthorized, "not authorized")
-		return
+		return nil
 	}
 
 	settings := handler.LoadOrganizationMetadata(organizationID)
 	c.JSON(200, settings)
+	return nil
 }
 
-func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) {
+func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *OperationResult {
 	var rolesUpdateRequest SetRolesForUserRequest
 
 	if err := c.ShouldBind(&rolesUpdateRequest); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("roles update format: %s", err.Error()))
-		return
+		return nil
 	}
 
 	subject, _ := c.Get("authenticated_user_profile")
@@ -281,16 +288,17 @@ func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHand
 		// Make sure all roles passed in are valid
 		if !handler.HasValidRoles(r.RoleNames) {
 			c.String(http.StatusBadRequest, "contains at least one invalid role.")
-			return
+			return nil
 		}
 	}
 
 	for _, r := range rolesUpdateRequest.Roles {
 		handler.SetRolesToUser(r.OrganizationID, userID, r.RoleNames)
 	}
+	return nil
 }
 
-func UserApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) {
+func UserApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *OperationResult {
 	subject, _ := c.Get("authenticated_user_profile")
 	t := handler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
@@ -311,6 +319,7 @@ func UserApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, 
 		response.Roles = append(response.Roles, UserOrgRoles{OrganizationID: orgID, RoleNames: roleNames})
 	}
 	c.JSON(http.StatusOK, response)
+	return nil
 }
 
 /*

@@ -295,6 +295,7 @@ func testSubOrgAdminCreateOrgInParent(baseServer *server.Server, server *httptes
 	}
 }
 
+// gcp admin can create a service account in the orgs they are in or under
 func testCreateGcpServiceAccount(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
 	return func(t *testing.T) {
 		cl := server.Client()
@@ -315,6 +316,28 @@ func testCreateGcpServiceAccount(baseServer *server.Server, server *httptest.Ser
 	}
 }
 
+// gcp admin can create a service account in the orgs they are in or under
+func testCreateGcpServiceAccountParentOrg(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
+	return func(t *testing.T) {
+		cl := server.Client()
+		// Create a base organization
+		path := fmt.Sprintf("/api/resources/%s/gcp.serviceaccount", rootOrganization0)
+		req := createBaseRequest(t, server, gcpAdminUser0Jwt, "POST", path)
+		jsonReq := make(map[string]interface{})
+		jsonReq["Name"] = "serviceAccount-" + subOrganizationID0
+		addJsonBody(req, jsonReq)
+
+		resp, err := cl.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("statuscode expected: StatusUnauthorized got: %d", resp.StatusCode)
+		}
+	}
+}
+
+// org admins can't create gcp accounts
 func testNotAuthorizedCreateGcpServiceAccount(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
 	return func(t *testing.T) {
 		cl := server.Client()
@@ -358,4 +381,5 @@ func TestBootstrapAndOrganization(t *testing.T) {
 	t.Run("testSubOrgAdminCreateOrgInParent", testSubOrgAdminCreateOrgInParent(baseServer, server))
 	t.Run("testCreateGcpServiceAccount", testCreateGcpServiceAccount(baseServer, server))
 	t.Run("testNotAUthorizedCreateGcpServiceAccount", testNotAuthorizedCreateGcpServiceAccount(baseServer, server))
+	t.Run("testCreateGcpServiceAccountParentOrg", testCreateGcpServiceAccountParentOrg(baseServer, server))
 }

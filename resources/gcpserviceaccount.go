@@ -21,7 +21,6 @@ func (g GcpServiceAccountResourcePostAction) PermissionName() string {
 	params["organizationID"] = organizationID
 	params["organizationMetadata"] = metadata
 	params["resourceDao"] = s.ResourceDao
-	params["httpRequest"] = c.Request
 	params["userUnfo"] = userInfo
 */
 func (g GcpServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *http.Request, params OperationParameters) *OperationResult {

@@ -19,27 +19,29 @@ import (
 	"github.com/gorilla/sessions"
 )
 
-func IndexHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+func IndexHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *OperationResult {
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
 		"title": "Welcome",
 	})
+	return nil
 }
 
-func InviteHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) {
+func InviteHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *OperationResult {
 	if c.Request.Method == "GET" {
 		inviteCodeStr := c.Param("inviteCode")
 		inviteCode, _ := utils.StringToInt64(inviteCodeStr)
 		theUser := daoHandler.LoadUserFromInviteCode(inviteCode)
 		if theUser == nil {
 			c.String(http.StatusBadRequest, fmt.Sprintf("invite code not valid"))
-			return
+			return nil
 		}
 		href := createInviteLink("", inviteCode, daoHandler)
 		c.Redirect(302, href)
 	}
+	return nil
 }
 
-func LoginHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
+func LoginHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *OperationResult {
 	var auth0Authenticator *auth.Auth0Authenticator
 	var ok bool
 	if auth0Authenticator, ok = s.Authenticator.(*auth.Auth0Authenticator); !ok {
@@ -53,14 +55,14 @@ func LoginHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Co
 	_, err := rand.Read(b)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil
 	}
 	state := base64.StdEncoding.EncodeToString(b)
 
 	session, err := store.Get(r, "auth-session")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil
 	}
 
 	// TODO: Hack to get an invite code into the callback
@@ -73,13 +75,14 @@ func LoginHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Co
 	err = session.Save(r, w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil
 	}
 
 	http.Redirect(w, r, auth0Authenticator.Config.AuthCodeURL(state), http.StatusTemporaryRedirect)
+	return nil
 }
 
-func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) {
+func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *OperationResult {
 	var auth0Authenticator *auth.Auth0Authenticator
 	var ok bool
 	if auth0Authenticator, ok = s.Authenticator.(*auth.Auth0Authenticator); !ok {
@@ -97,25 +100,25 @@ func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin
 	session, err := store.Get(r, "auth-session")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil
 	}
 
 	if r.URL.Query().Get("state") != session.Values["state"] {
 		http.Error(w, "Invalid state parameter", http.StatusBadRequest)
-		return
+		return nil
 	}
 
 	token, err := auth0Authenticator.Config.Exchange(context.TODO(), r.URL.Query().Get("code"))
 	if err != nil {
 		log.Printf("no token found: %v", err)
 		w.WriteHeader(http.StatusUnauthorized)
-		return
+		return nil
 	}
 
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
 		http.Error(w, "No id_token field in oauth2 token.", http.StatusInternalServerError)
-		return
+		return nil
 	}
 
 	oidcConfig := &oidc.Config{
@@ -126,14 +129,14 @@ func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin
 
 	if err != nil {
 		http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
-		return
+		return nil
 	}
 
 	// Getting now the userInfo
 	var profile map[string]interface{}
 	if err := idToken.Claims(&profile); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil
 	}
 
 	stateWithInvite := strings.Split(r.URL.Query().Get("state"), "|")
@@ -141,19 +144,19 @@ func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin
 		initialized := dao.InitUserFromInviteCode(stateWithInvite[1], fmt.Sprintf("%v", profile["sub"]))
 		if !initialized {
 			http.Error(w, "Failed to initialize user", http.StatusOK)
-			return
+			return nil
 		}
 	}
 
 	organizationUser, err := dao.LogUserIn(profile["sub"].(string))
 	if organizationUser == nil && err == nil {
 		http.Redirect(w, r, "/webapp", http.StatusSeeOther)
-		return
+		return nil
 	}
 
 	if err != nil {
 		http.Error(w, "Failed to initialize user: "+err.Error(), http.StatusInternalServerError)
-		return
+		return nil
 	}
 
 	session.Values["id_token"] = rawIDToken
@@ -163,11 +166,12 @@ func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin
 	err = session.Save(r, w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil
 	}
 
 	c.JSON(200, gin.H{
 		"idToken": rawIDToken,
 	})
 
+	return nil
 }

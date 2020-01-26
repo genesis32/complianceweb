@@ -29,6 +29,12 @@ type Server struct {
 	registeredResources dao.RegisteredResourcesStore
 }
 
+type OperationMetadata map[string]interface{}
+type OperationResult struct {
+	AuditMetadata      OperationMetadata
+	AuditHumanReadable string
+}
+
 func initCookieKeys(daoHandler dao.DaoHandler) ([]byte, []byte) {
 	authKey := utils.GenerateRandomBytes(32)
 	encKey := utils.GenerateRandomBytes(32)
@@ -110,12 +116,34 @@ func (s *Server) Shutdown() error {
 	return err
 }
 
-type webAppFunc func(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context)
+type webAppFunc func(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *OperationResult
 type resourceApiFunc func(w http.ResponseWriter, r *http.Request, parameters resources.OperationParameters) *resources.OperationResult
 
 func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
 	return func(c *gin.Context) {
-		fn(s, s.SessionStore, s.Dao, c)
+		var userId int64
+		subject, ok := c.Get("authenticated_user_profile")
+		if ok {
+			// TODO: Move the userinfo parameter to the method it's calling
+			userInfo := s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
+			userId = userInfo.ID
+		}
+
+		auditRecord := dao.NewAuditRecord("webapp", c.Request.Method)
+		auditRecord.OrganizationUserID = userId
+		auditRecord.OrganizationID = 0 // TODO: Fix this
+
+		s.Dao.CreateAuditRecord(auditRecord)
+
+		operationResult := fn(s, s.SessionStore, s.Dao, c)
+
+		// TODO: Fix this so it's required in the future
+		if operationResult != nil {
+			auditRecord.Metadata = operationResult.AuditMetadata
+			auditRecord.HumanReadable = operationResult.AuditHumanReadable
+		}
+
+		s.Dao.SealAuditRecord(auditRecord)
 	}
 }
 
@@ -141,8 +169,6 @@ func (s *Server) registerResourceApi(resourceAction resources.OrganizationResour
 		params["organizationID"] = organizationID
 		params["organizationMetadata"] = metadata
 		params["resourceDao"] = s.ResourceDao
-		params["httpResponseWriter"] = c.Writer
-		params["httpRequest"] = c.Request
 		params["userUnfo"] = userInfo
 
 		auditRecord := dao.NewAuditRecord(resourceAction.InternalKey(), resourceAction.Method())
