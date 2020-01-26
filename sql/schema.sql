@@ -87,3 +87,15 @@ registered_resources (
     internal_key TEXT,
     enabled BOOLEAN
 );
+
+CREATE TABLE resource_audit_log (
+    id BIGINT PRIMARY KEY,
+    created TIMESTAMP,
+    current_state INT,
+    organization_user_id BIGINT,
+    organization_id BIGINT,
+    internal_key TEXT,
+    method TEXT,
+    metadata jsonb,
+    human_readable TEXT
+);

@@ -111,7 +111,7 @@ func (s *Server) Shutdown() error {
 }
 
 type webAppFunc func(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context)
-type resourceApiFunc func(parameters resources.OperationParameters)
+type resourceApiFunc func(w http.ResponseWriter, r *http.Request, parameters resources.OperationParameters) *resources.OperationResult
 
 func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
 	return func(c *gin.Context) {
@@ -128,22 +128,35 @@ func (s *Server) registerResourceApi(resourceAction resources.OrganizationResour
 		hasPermission := s.Dao.DoesUserHavePermission(userInfo.ID, organizationID, resourceAction.PermissionName())
 
 		// @gmail.com as orgs
-		log.Printf("resource organizationid: %d required permission: %s user: %d", organizationID, resourceAction.PermissionName(), userInfo.ID)
+		//		log.Printf("resource organizationid: %d required permission: %s user: %d", organizationID, resourceAction.PermissionName(), userInfo.ID)
 		if !hasPermission {
 			c.String(http.StatusUnauthorized, "not authorized")
 			return
 		}
 
-		orgIDWithMetadata, metadata := s.Dao.LoadMetadataInTree(organizationID, "gcpCredentials")
-		log.Printf("loaded orgid: %d metadata", orgIDWithMetadata)
+		_, metadata := s.Dao.LoadMetadataInTree(organizationID, "gcpCredentials")
+		//		log.Printf("loaded orgid: %d metadata: %v", orgIDWithMetadata, metadata)
 
 		params := resources.OperationParameters{}
+		params["organizationID"] = organizationID
 		params["organizationMetadata"] = metadata
 		params["resourceDao"] = s.ResourceDao
+		params["httpResponseWriter"] = c.Writer
 		params["httpRequest"] = c.Request
 		params["userUnfo"] = userInfo
 
-		fn(params)
+		auditRecord := dao.NewAuditRecord(resourceAction.InternalKey(), resourceAction.Method())
+		auditRecord.OrganizationUserID = userInfo.ID
+		auditRecord.OrganizationID = organizationID
+
+		s.Dao.CreateAuditRecord(auditRecord)
+
+		operationResult := fn(c.Writer, c.Request, params)
+
+		auditRecord.Metadata = operationResult.AuditMetadata
+		auditRecord.HumanReadable = operationResult.AuditHumanReadable
+
+		s.Dao.SealAuditRecord(auditRecord)
 	}
 }
 

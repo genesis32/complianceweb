@@ -182,7 +182,7 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 	}
 
 	if !daoHandler.HasValidRoles(addRequest.RoleNames) {
-		c.String(http.StatusBadRequest, "contains at least one invalid role")
+		c.String(http.StatusBadRequest, "needs to contain all valid roles")
 		return
 	}
 

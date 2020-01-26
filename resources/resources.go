@@ -1,5 +1,7 @@
 package resources
 
+import "net/http"
+
 var loadedResources = []OrganizationResourceAction{
 	GcpServiceAccountResourcePostAction{},
 }
@@ -15,6 +17,12 @@ func FindResourceActions(internalKey string) []OrganizationResourceAction {
 }
 
 type OperationParameters map[string]interface{}
+type OperationMetadata map[string]interface{}
+
+type OperationResult struct {
+	AuditMetadata      OperationMetadata
+	AuditHumanReadable string
+}
 
 type OrganizationResourceAction interface {
 	Name() string
@@ -22,5 +30,9 @@ type OrganizationResourceAction interface {
 
 	Method() string
 	PermissionName() string
-	Execute(params OperationParameters)
+	Execute(w http.ResponseWriter, r *http.Request, params OperationParameters) *OperationResult
+}
+
+func newOperationResult() *OperationResult {
+	return &OperationResult{AuditMetadata: make(map[string]interface{}), AuditHumanReadable: "<<not defined>>"}
 }

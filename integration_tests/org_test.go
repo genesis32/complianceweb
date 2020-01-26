@@ -2,6 +2,7 @@ package integration_tests
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -250,7 +251,7 @@ func testCreateInvalidRole(baseServer *server.Server, server *httptest.Server) f
 }
 
 // sub org admin tries to create a user in the org above where they are admin
-func testSubOrgAdminCreateInParent(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
+func testSubOrgAdminCreateUserInParent(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
 	return func(t *testing.T) {
 		cl := server.Client()
 
@@ -260,6 +261,68 @@ func testSubOrgAdminCreateInParent(baseServer *server.Server, server *httptest.S
 		jsonReq["Name"] = "TestUser1-" + rootOrganization0
 		jsonReq["ParentOrganizationID"] = rootOrganization0
 		jsonReq["RoleNames"] = []string{"GCP Administrator"}
+		addJsonBody(req, jsonReq)
+
+		resp, err := cl.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("statuscode expected: StatusUnauthorized got: %d", resp.StatusCode)
+		}
+	}
+}
+
+// sub org admin tries to create a user in the org above where they are admin
+func testSubOrgAdminCreateOrgInParent(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
+	return func(t *testing.T) {
+		cl := server.Client()
+
+		// Create a base organization
+		req := createBaseRequest(t, server, subOrgAdminJwt, "POST", "/api/organizations")
+		jsonReq := make(map[string]interface{})
+		jsonReq["Name"] = "SubOrg1024-" + rootOrganization0
+		jsonReq["ParentOrganizationID"] = rootOrganization0
+		addJsonBody(req, jsonReq)
+
+		resp, err := cl.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("statuscode expected: StatusUnauthorized got: %d", resp.StatusCode)
+		}
+	}
+}
+
+func testCreateGcpServiceAccount(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
+	return func(t *testing.T) {
+		cl := server.Client()
+		// Create a base organization
+		path := fmt.Sprintf("/api/resources/%s/gcp.serviceaccount", subOrganizationID0)
+		req := createBaseRequest(t, server, gcpAdminUser0Jwt, "POST", path)
+		jsonReq := make(map[string]interface{})
+		jsonReq["Name"] = "serviceAccount-" + subOrganizationID0
+		addJsonBody(req, jsonReq)
+
+		resp, err := cl.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("statuscode expected: StatusOK got: %d", resp.StatusCode)
+		}
+	}
+}
+
+func testNotAuthorizedCreateGcpServiceAccount(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
+	return func(t *testing.T) {
+		cl := server.Client()
+		// Create a base organization
+		path := fmt.Sprintf("/api/resources/%s/gcp.serviceaccount", subOrganizationID0)
+		req := createBaseRequest(t, server, orgAdminJwt, "POST", path)
+		jsonReq := make(map[string]interface{})
+		jsonReq["Name"] = "serviceAccount0-" + subOrganizationID0
 		addJsonBody(req, jsonReq)
 
 		resp, err := cl.Do(req)
@@ -291,5 +354,8 @@ func TestBootstrapAndOrganization(t *testing.T) {
 	t.Run("testCreateRootOrg", testCreateRootOrg(baseServer, server))
 	t.Run("testNoUserCreateRole", testNoUserCreateRole(baseServer, server))
 	t.Run("testCreateInvalidRole", testCreateInvalidRole(baseServer, server))
-	t.Run("testSubOrgAdminCreateInParent", testSubOrgAdminCreateInParent(baseServer, server))
+	t.Run("testSubOrgAdminCreateUserInParent", testSubOrgAdminCreateUserInParent(baseServer, server))
+	t.Run("testSubOrgAdminCreateOrgInParent", testSubOrgAdminCreateOrgInParent(baseServer, server))
+	t.Run("testCreateGcpServiceAccount", testCreateGcpServiceAccount(baseServer, server))
+	t.Run("testNotAUthorizedCreateGcpServiceAccount", testNotAuthorizedCreateGcpServiceAccount(baseServer, server))
 }

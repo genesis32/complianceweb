@@ -56,10 +56,45 @@ type DaoHandler interface {
 	LoadEnabledResources() RegisteredResourcesStore
 
 	HasValidRoles(roles []string) bool
+
+	CreateAuditRecord(record *AuditRecord)
+	SealAuditRecord(record *AuditRecord)
 }
 
 type Dao struct {
 	Db *sql.DB
+}
+
+func (d *Dao) CreateAuditRecord(record *AuditRecord) {
+	sqlStatement := `
+		INSERT INTO
+			resource_audit_log
+		(id, created, current_state, organization_user_id, organization_id, internal_key, method)
+		VALUES
+		($1, $2, 0, $3, $4, $5, $6)
+`
+	_, err := d.Db.Exec(sqlStatement, record.ID, record.CreatedTimestamp, record.OrganizationUserID, record.OrganizationID, record.InternalKey, record.Method)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+}
+
+func (d *Dao) SealAuditRecord(record *AuditRecord) {
+	sqlStatement := `
+		UPDATE 
+			resource_audit_log
+		SET
+		human_readable = $1,
+		current_state = 1
+		WHERE
+			id = $2 AND
+			current_state = 0
+`
+	_, err := d.Db.Exec(sqlStatement, record.HumanReadable, record.ID)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (d *Dao) HasValidRoles(roles []string) bool {
