@@ -3,7 +3,7 @@ package resources
 import "net/http"
 
 var loadedResources = []OrganizationResourceAction{
-	GcpServiceAccountResourcePostAction{},
+	&GcpServiceAccountResourcePostAction{},
 }
 
 func FindResourceActions(internalKey string) []OrganizationResourceAction {

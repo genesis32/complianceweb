@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/genesis32/complianceweb/utils"
 
@@ -21,6 +22,26 @@ const (
 type RegisteredResourcesStore map[string]*RegisteredResource
 type SettingsStore map[string]*Setting
 type UserRoleStore map[int64][]Role
+
+type AuditRecord struct {
+	ID                 int64
+	CreatedTimestamp   time.Time
+	OrganizationUserID int64
+	OrganizationID     int64
+	InternalKey        string
+	Method             string
+	Metadata           map[string]interface{}
+	HumanReadable      string
+}
+
+func NewAuditRecord(internalKey, method string) *AuditRecord {
+	return &AuditRecord{
+		ID:               utils.GetNextUniqueId(),
+		CreatedTimestamp: time.Now(),
+		InternalKey:      internalKey,
+		Method:           method,
+	}
+}
 
 type DaoHandler interface {
 	Open()
@@ -423,7 +444,7 @@ ORDER BY ordernum DESC LIMIT 1;
 	var organizationMetadata OrganizationMetadata
 	err := row.Scan(&organizationID, &organizationMetadata)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, nil
+		return 0, make(OrganizationMetadata)
 	}
 
 	if err != nil {

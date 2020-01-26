@@ -33,7 +33,7 @@ func createBaseRequest(t *testing.T, server *httptest.Server, bearerToken, metho
 	return req
 }
 
-func createJsonRequest(data map[string]interface{}) io.ReadCloser {
+func createJsonRequest(data interface{}) io.ReadCloser {
 	ret, err := json.Marshal(data)
 	if err != nil {
 		log.Fatal(err)
@@ -41,7 +41,7 @@ func createJsonRequest(data map[string]interface{}) io.ReadCloser {
 	return ioutil.NopCloser(bytes.NewReader(ret))
 }
 
-func addJsonBody(req *http.Request, jsonMap map[string]interface{}) {
+func addJsonBody(req *http.Request, data interface{}) {
 	req.Header["Content-Type"] = append(req.Header["Content-Type"], "application/json")
-	req.Body = createJsonRequest(jsonMap)
+	req.Body = createJsonRequest(data)
 }

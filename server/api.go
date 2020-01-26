@@ -248,15 +248,15 @@ func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler 
 	organizationIDStr := c.Param("organizationID")
 	organizationID, _ := utils.StringToInt64(organizationIDStr)
 
-	// TODO: Break out permissions
-	hasPermission := handler.DoesUserHavePermission(t.ID, organizationID, OrganizationCreatePermission)
+	hasPermission := handler.CanUserViewOrg(t.ID, organizationID)
 	if !hasPermission {
 		c.String(http.StatusUnauthorized, "not authorized")
 		return nil
 	}
 
-	settings := handler.LoadOrganizationMetadata(organizationID)
-	c.JSON(200, settings)
+	metadata := handler.LoadOrganizationMetadata(organizationID)
+	// TODO: Make this into another object
+	c.JSON(200, metadata)
 	return nil
 }
 

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/genesis32/complianceweb/dao"
+
 	"github.com/genesis32/complianceweb/server"
 )
 
@@ -326,7 +328,6 @@ func testCreateGcpServiceAccountParentOrg(baseServer *server.Server, server *htt
 		jsonReq := make(map[string]interface{})
 		jsonReq["Name"] = "serviceAccount-" + subOrganizationID0
 		addJsonBody(req, jsonReq)
-
 		resp, err := cl.Do(req)
 		if err != nil {
 			t.Fatal(err)
@@ -358,6 +359,48 @@ func testNotAuthorizedCreateGcpServiceAccount(baseServer *server.Server, server 
 	}
 }
 
+// set and get metadata
+func testUpdateOrganizationMetadata(baseServer *server.Server, s *httptest.Server) func(t *testing.T) {
+	return func(t *testing.T) {
+		cl := s.Client()
+		var req *http.Request
+		path := fmt.Sprintf("/api/organizations/%s/metadata", subOrganizationID0)
+		{
+			req = createBaseRequest(t, s, orgAdminJwt, "PUT", path)
+			data := &server.OrganizationMetadataUpdateRequest{Metadata: make(map[string]interface{})}
+			data.Metadata["foo"] = "bar"
+			addJsonBody(req, data)
+
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("statuscode expected: StatusUnauthorized got: %d", resp.StatusCode)
+			}
+		}
+
+		{
+			req = createBaseRequest(t, s, gcpAdminUser0Jwt, "GET", path)
+
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("statuscode expected: StatusOK got: %d", resp.StatusCode)
+			}
+			var respData dao.OrganizationMetadata
+			json.NewDecoder(resp.Body).Decode(&respData)
+			metadataValue := respData["foo"].(string)
+			if metadataValue != "bar" {
+				t.Fatalf("metadata: %v does not match", metadataValue)
+			}
+		}
+
+	}
+}
+
 func TestBootstrapAndOrganization(t *testing.T) {
 	for _, fn := range initialUserJwtFiles {
 		uj, err := ioutil.ReadFile(fn)
@@ -382,4 +425,5 @@ func TestBootstrapAndOrganization(t *testing.T) {
 	t.Run("testCreateGcpServiceAccount", testCreateGcpServiceAccount(baseServer, server))
 	t.Run("testNotAUthorizedCreateGcpServiceAccount", testNotAuthorizedCreateGcpServiceAccount(baseServer, server))
 	t.Run("testCreateGcpServiceAccountParentOrg", testCreateGcpServiceAccountParentOrg(baseServer, server))
+	t.Run("testUpdateOrganizationMetadata", testUpdateOrganizationMetadata(baseServer, server))
 }
