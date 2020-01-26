@@ -14,11 +14,17 @@ import (
 
 type genericJson map[string]interface{}
 
-var initialUserJwtFiles = []string{"data/105843250540508297717.txt"}
-var fixedJwts []string
-var systemAdminJwt string
-var orgAdminJwt string
-var user0Jwt string
+var (
+	initialUserJwtFiles = []string{"data/105843250540508297717.txt"}
+	fixedJwts           []string
+	systemAdminJwt      string
+	orgAdminJwt         string
+	subOrgAdminJwt      string
+	gcpAdminUser0Jwt    string
+	rootOrganization0   string
+	rootOrganization1   string
+	subOrganizationID0  string
+)
 
 func testBootstrap(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
 	return func(t *testing.T) {
@@ -49,7 +55,6 @@ func testBootstrap(baseServer *server.Server, server *httptest.Server) func(t *t
 func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
 	return func(t *testing.T) {
 		cl := server.Client()
-		var organizationID0, organizationID1 string
 		// Create a base organization
 		{
 			req := createBaseRequest(t, server, systemAdminJwt, "POST", "/api/organizations")
@@ -66,7 +71,7 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 			}
 			var jsonResp genericJson
 			json.NewDecoder(resp.Body).Decode(&jsonResp)
-			organizationID0 = jsonResp["ID"].(string)
+			rootOrganization0 = jsonResp["ID"].(string)
 		}
 
 		// create a second organization tree
@@ -85,15 +90,15 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 			}
 			var jsonResp genericJson
 			json.NewDecoder(resp.Body).Decode(&jsonResp)
-			organizationID1 = jsonResp["ID"].(string)
+			rootOrganization1 = jsonResp["ID"].(string)
 		}
 
 		// Create the first admin user of Organization1024 - user0
 		{
 			req := createBaseRequest(t, server, systemAdminJwt, "POST", "/api/users")
 			jsonReq := make(map[string]interface{})
-			jsonReq["Name"] = "OrgAdmin0-" + organizationID0
-			jsonReq["ParentOrganizationID"] = organizationID0
+			jsonReq["Name"] = "OrgAdmin0-" + rootOrganization0
+			jsonReq["ParentOrganizationID"] = rootOrganization0
 			jsonReq["RoleNames"] = []string{"Organization Admin"}
 			addJsonBody(req, jsonReq)
 
@@ -117,7 +122,7 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 		{
 			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/organizations")
 			jsonReq := make(map[string]interface{})
-			jsonReq["ParentOrganizationID"] = organizationID1
+			jsonReq["ParentOrganizationID"] = rootOrganization1
 			jsonReq["Name"] = "RootOrg2048-0"
 			addJsonBody(req, jsonReq)
 
@@ -134,7 +139,7 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 		{
 			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/organizations")
 			jsonReq := make(map[string]interface{})
-			jsonReq["ParentOrganizationID"] = organizationID0
+			jsonReq["ParentOrganizationID"] = rootOrganization0
 			jsonReq["Name"] = "RootOrg1024-0"
 			addJsonBody(req, jsonReq)
 
@@ -145,14 +150,40 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 			if resp.StatusCode != http.StatusCreated {
 				t.Fatalf("statuscode expected: StatusCreated got: %d", resp.StatusCode)
 			}
+			var jsonResp genericJson
+			json.NewDecoder(resp.Body).Decode(&jsonResp)
+			subOrganizationID0 = jsonResp["ID"].(string)
 		}
 
 		// create a user with just a gcp admin role
 		{
 			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/users")
 			jsonReq := make(map[string]interface{})
-			jsonReq["Name"] = "GCPAdminUser0-" + organizationID0
-			jsonReq["ParentOrganizationID"] = organizationID0
+			jsonReq["Name"] = "GCPAdminUser0-" + subOrganizationID0
+			jsonReq["ParentOrganizationID"] = subOrganizationID0
+			jsonReq["RoleNames"] = []string{"Organization Admin"}
+			addJsonBody(req, jsonReq)
+
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusCreated {
+				t.Fatalf("statuscode expected: StatusCreated got: %d", resp.StatusCode)
+			}
+			var jsonResp genericJson
+			json.NewDecoder(resp.Body).Decode(&jsonResp)
+			inviteCode := jsonResp["InviteCode"].(string)
+
+			subOrgAdminJwt = simulateLogin(baseServer.Dao, inviteCode)
+		}
+
+		// create a user with just a gcp admin role
+		{
+			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/users")
+			jsonReq := make(map[string]interface{})
+			jsonReq["Name"] = "GCPAdminUser0-" + subOrganizationID0
+			jsonReq["ParentOrganizationID"] = subOrganizationID0
 			jsonReq["RoleNames"] = []string{"GCP Administrator"}
 			addJsonBody(req, jsonReq)
 
@@ -167,28 +198,77 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 			json.NewDecoder(resp.Body).Decode(&jsonResp)
 			inviteCode := jsonResp["InviteCode"].(string)
 
-			user0Jwt = simulateLogin(baseServer.Dao, inviteCode)
+			gcpAdminUser0Jwt = simulateLogin(baseServer.Dao, inviteCode)
 		}
 
-		// user with just a gcp role is now trying to create a user in their org (it should fail)
-		{
-			req := createBaseRequest(t, server, user0Jwt, "POST", "/api/users")
-			jsonReq := make(map[string]interface{})
-			jsonReq["Name"] = "TestUser1-" + organizationID0
-			jsonReq["ParentOrganizationID"] = organizationID0
-			jsonReq["RoleNames"] = []string{"GCP Administrator"}
-			addJsonBody(req, jsonReq)
+	}
+}
 
-			resp, err := cl.Do(req)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if resp.StatusCode != http.StatusUnauthorized {
-				bodyBytes, _ := ioutil.ReadAll(resp.Body)
-				t.Fatalf("statuscode expected: Unauthorized got: %d body: %v", resp.StatusCode, string(bodyBytes))
-			}
+// user with just a gcp role is now trying to create a user in their org (it should fail)
+func testNoUserCreateRole(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
+	return func(t *testing.T) {
+		cl := server.Client()
+		req := createBaseRequest(t, server, gcpAdminUser0Jwt, "POST", "/api/users")
+		jsonReq := make(map[string]interface{})
+		jsonReq["Name"] = "TestUser1-" + rootOrganization0
+		jsonReq["ParentOrganizationID"] = rootOrganization0
+		jsonReq["RoleNames"] = []string{"GCP Administrator"}
+		addJsonBody(req, jsonReq)
+
+		resp, err := cl.Do(req)
+		if err != nil {
+			t.Fatal(err)
 		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			bodyBytes, _ := ioutil.ReadAll(resp.Body)
+			t.Fatalf("statuscode expected: Unauthorized got: %d body: %v", resp.StatusCode, string(bodyBytes))
+		}
+	}
+}
 
+// invalid role name
+func testCreateInvalidRole(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
+	return func(t *testing.T) {
+		cl := server.Client()
+
+		// Create a base organization
+		req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/users")
+		jsonReq := make(map[string]interface{})
+		jsonReq["Name"] = "TestUser1-" + rootOrganization0
+		jsonReq["ParentOrganizationID"] = rootOrganization0
+		jsonReq["RoleNames"] = []string{"GCP Admin"}
+		addJsonBody(req, jsonReq)
+
+		resp, err := cl.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("statuscode expected: StatusBadRequest got: %d", resp.StatusCode)
+		}
+	}
+}
+
+// sub org admin tries to create a user in the org above where they are admin
+func testSubOrgAdminCreateInParent(baseServer *server.Server, server *httptest.Server) func(t *testing.T) {
+	return func(t *testing.T) {
+		cl := server.Client()
+
+		// Create a base organization
+		req := createBaseRequest(t, server, subOrgAdminJwt, "POST", "/api/users")
+		jsonReq := make(map[string]interface{})
+		jsonReq["Name"] = "TestUser1-" + rootOrganization0
+		jsonReq["ParentOrganizationID"] = rootOrganization0
+		jsonReq["RoleNames"] = []string{"GCP Administrator"}
+		addJsonBody(req, jsonReq)
+
+		resp, err := cl.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("statuscode expected: StatusUnauthorized got: %d", resp.StatusCode)
+		}
 	}
 }
 
@@ -209,4 +289,7 @@ func TestBootstrapAndOrganization(t *testing.T) {
 	defer server.Close()
 	t.Run("testBootstrap", testBootstrap(baseServer, server))
 	t.Run("testCreateRootOrg", testCreateRootOrg(baseServer, server))
+	t.Run("testNoUserCreateRole", testNoUserCreateRole(baseServer, server))
+	t.Run("testCreateInvalidRole", testCreateInvalidRole(baseServer, server))
+	t.Run("testSubOrgAdminCreateInParent", testSubOrgAdminCreateInParent(baseServer, server))
 }

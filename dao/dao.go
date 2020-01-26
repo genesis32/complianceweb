@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/genesis32/complianceweb/utils"
 
@@ -62,17 +63,19 @@ type Dao struct {
 }
 
 func (d *Dao) HasValidRoles(roles []string) bool {
-	return true
+
+	roleNames := strings.Join(roles, ",")
+
 	sqlStatement := `
 		SELECT 
 			COUNT(1)
 		FROM
-			roles
+			role
 		WHERE
-			value IN $1
+			display_name IN ($1)
 `
 	var cnt int
-	row := d.Db.QueryRow(sqlStatement, roles)
+	row := d.Db.QueryRow(sqlStatement, roleNames)
 	err := row.Scan(&cnt)
 	if err != nil {
 		log.Fatal(err)
@@ -292,15 +295,9 @@ func (d *Dao) DoesUserHavePermission(userID, organizationID int64, permission st
 		FROM
 				organization_organization_user_role_xref 
 		WHERE 
-				(organization_id IN
-				(SELECT id FROM organization WHERE path <@ 
-				  (SELECT path FROM organization WHERE id IN 
-					  (SELECT organization_id FROM organization_organization_user_xref 
-						WHERE organization_user_id=$1)) AND path @> (SELECT path FROM organization WHERE id=$2))
-				AND role_id IN 
-				(SELECT r.id FROM role r, permission p, role_permission_xref rpx WHERE
-				p.id = rpx.permission_id AND r.id = rpx.role_id AND p.value = $3))
-				AND organization_user_id = $1
+				(organization_id IN (SELECT id FROM organization WHERE path @> (SELECT path FROM organization WHERE id=$2)) AND
+				role_id IN (SELECT r.id FROM role r, permission p, role_permission_xref rpx WHERE p.id = rpx.permission_id AND r.id = rpx.role_id AND p.value = $3)) AND
+				organization_user_id = $1
 `
 	var count int
 	row := d.Db.QueryRow(sqlStatement, userID, organizationID, permission)
