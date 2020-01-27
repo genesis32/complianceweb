@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/genesis32/complianceweb/utils"
@@ -120,18 +119,16 @@ func (d *Dao) SealAuditRecord(record *AuditRecord) {
 
 func (d *Dao) HasValidRoles(roles []string) bool {
 
-	roleNames := strings.Join(roles, ",")
-
 	sqlStatement := `
 		SELECT 
 			COUNT(1)
 		FROM
 			role
 		WHERE
-			display_name IN ($1)
+			display_name = ANY($1)
 `
 	var cnt int
-	row := d.Db.QueryRow(sqlStatement, roleNames)
+	row := d.Db.QueryRow(sqlStatement, pq.Array(roles))
 	err := row.Scan(&cnt)
 	if err != nil {
 		log.Fatal(err)

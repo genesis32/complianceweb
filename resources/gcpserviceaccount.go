@@ -3,9 +3,14 @@ package resources
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+
+	"google.golang.org/api/googleapi"
+
+	"github.com/pkg/errors"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -15,6 +20,14 @@ import (
 
 	"github.com/genesis32/complianceweb/dao"
 )
+
+type GcpServiceAccountCreateRequest struct {
+	UniqueIdentifier string
+}
+
+type GcpServiceAccountCreateResponse struct {
+	UniqueIdentifier string
+}
 
 type GcpServiceAccountResourcePostAction struct {
 	db *sql.DB
@@ -28,14 +41,24 @@ func (g *GcpServiceAccountResourcePostAction) PermissionName() string {
 	return "gcp.serviceaccount.write.execute"
 }
 
-func (g *GcpServiceAccountResourcePostAction) createDbEntry() {
+type GcpServiceAccountState struct {
+	Disabled bool
+}
+
+func (g *GcpServiceAccountResourcePostAction) createRecord(emailAddress string, state GcpServiceAccountState) {
+	var err error
+	jsonBytes, err := json.Marshal(state)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	sqlStatement := `
 		INSERT INTO resource_gcpserviceaccount
-			(id, state)
+			(id, external_ref, state)
 		VALUES 
-			($1, '{}')
+			($1, $2, $3)
 	`
-	_, err := g.db.Exec(sqlStatement, utils.GetNextUniqueId())
+	_, err = g.db.Exec(sqlStatement, utils.GetNextUniqueId(), emailAddress, string(jsonBytes))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -57,25 +80,54 @@ func (g *GcpServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *
 	if !ok {
 		log.Fatal("params['organizationMetadata'] not a ResourceDao type")
 	}
-	log.Printf("gcp.serviceaccount post")
+	result := newOperationResult()
+
+	var req GcpServiceAccountCreateRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		result.AuditHumanReadable = fmt.Sprintf("error: failed to unmarshal request err: %v", err)
+		return result
+	}
 
 	a := &GcpServiceAccountResourcePostAction{db: daoHandler.GetRawDatabaseHandle()}
 
-	if credentials, ok := metadata["gcpCredential"]; ok {
-		b, ok0 := credentials.(string)
-		if ok0 {
-			ctx := context.Background()
-			createServiceAccount(ctx, []byte(b), "accountId")
-			a.createDbEntry()
+	if credentials, ok := metadata["gcpCredentials"]; ok {
+		ctx := context.Background()
+		projectId := metadata["gcpProject"].(string)
+		jsonBytes, err := json.Marshal(credentials)
+		if err != nil {
+			w.WriteHeader(500)
+			result.AuditHumanReadable = fmt.Sprintf("failed: failed to unmarshal credentials err: %v", err)
+			return result
 		}
+		serviceAccount, err := a.createServiceAccount(ctx, jsonBytes, projectId, req.UniqueIdentifier)
+		if err != nil {
+			if e, ok := err.(*googleapi.Error); ok {
+				w.WriteHeader(e.Code)
+				w.Write([]byte(e.Message))
+				result.AuditHumanReadable = fmt.Sprintf("failed: failed to create gcp service account googleapi error: %v", err)
+				return result
+			} else {
+				w.WriteHeader(500)
+				result.AuditHumanReadable = fmt.Sprintf("failed: failed to create gcp service account other error: %v", err)
+				return result
+			}
+		}
+
+		initialState := GcpServiceAccountState{}
+		initialState.Disabled = serviceAccount.Disabled
+
+		a.createRecord(serviceAccount.Email, initialState)
+		w.WriteHeader(200)
+		result.AuditHumanReadable = fmt.Sprintf("success: created gcp service account: %s", serviceAccount.Email)
+		return result
+	} else {
+		w.WriteHeader(404)
+		result.AuditHumanReadable = fmt.Sprintf("failed: could not find gcp credentials")
+		return result
 	}
 
-	w.WriteHeader(200)
-
-	result := newOperationResult()
-	result.AuditHumanReadable = fmt.Sprintf("This went ok %v", metadata)
-
-	return result
 }
 
 func (g *GcpServiceAccountResourcePostAction) Name() string {
@@ -86,7 +138,7 @@ func (g *GcpServiceAccountResourcePostAction) InternalKey() string {
 	return "gcp.serviceaccount"
 }
 
-func createServiceAccount(ctx context.Context, jsonCredential []byte, serviceAccountID string) (*iam.ServiceAccount, error) {
+func (g *GcpServiceAccountResourcePostAction) createServiceAccount(ctx context.Context, jsonCredential []byte, projectId, uniqueName string) (*iam.ServiceAccount, error) {
 	var err error
 
 	// TODO: Store and cache this somewhere.
@@ -95,20 +147,20 @@ func createServiceAccount(ctx context.Context, jsonCredential []byte, serviceAcc
 
 	service, err := iam.New(client)
 	if err != nil {
-		return nil, fmt.Errorf("iam.New: %v", err)
+		return nil, errors.Wrap(err, "iam.New failed")
 	}
 
-	resource := "projects/hilobit-165520"
-	request := &iam.CreateServiceAccountRequest{AccountId: serviceAccountID, ServiceAccount: &iam.ServiceAccount{DisplayName: serviceAccountID}}
+	resource := fmt.Sprintf("projects/%s", projectId)
+	request := &iam.CreateServiceAccountRequest{AccountId: uniqueName, ServiceAccount: &iam.ServiceAccount{DisplayName: uniqueName}}
 
-	key, err := service.Projects.ServiceAccounts.Create(resource, request).Do()
+	serviceAccount, err := service.Projects.ServiceAccounts.Create(resource, request).Do()
 	if err != nil {
-		return nil, fmt.Errorf("Projects.ServiceAccounts.Keys.Create: %v", err)
+		return nil, errors.Wrapf(err, "CreateServiceAccount failed")
 	}
-	return key, nil
+	return serviceAccount, nil
 }
 
-func createKey(ctx context.Context, jsonCredential []byte, serviceAccountEmail string) (*iam.ServiceAccountKey, error) {
+func (g *GcpServiceAccountResourcePostAction) createKey(ctx context.Context, jsonCredential []byte, serviceAccountEmail string) (*iam.ServiceAccountKey, error) {
 	var err error
 	// Make a client that relies on a service account from the db.
 
