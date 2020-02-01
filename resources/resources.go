@@ -1,6 +1,8 @@
 package resources
 
-import "net/http"
+import (
+	"net/http"
+)
 
 var loadedResources = []OrganizationResourceAction{
 	&GcpServiceAccountResourcePostAction{},
