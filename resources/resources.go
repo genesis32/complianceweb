@@ -4,6 +4,7 @@ import "net/http"
 
 var loadedResources = []OrganizationResourceAction{
 	&GcpServiceAccountResourcePostAction{},
+	&GcpServiceAccountResourceKeyPostAction{},
 }
 
 func FindResourceActions(internalKey string) []OrganizationResourceAction {

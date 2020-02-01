@@ -149,10 +149,20 @@ func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
 
 func (s *Server) registerResourceApi(resourceAction resources.OrganizationResourceAction, fn resourceApiFunc) func(c *gin.Context) {
 	return func(c *gin.Context) {
-		subject, _ := c.Get("authenticated_user_profile")
+		organizationID, err := utils.StringToInt64(c.Param("organizationID"))
+		if err != nil {
+			c.String(http.StatusBadRequest, "expected numeric organization identifier")
+			return
+		}
+
+		subject, exists := c.Get("authenticated_user_profile")
+		if !exists {
+			c.String(http.StatusForbidden, "")
+			return
+		}
+
 		userInfo := s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
-		organizationID, _ := utils.StringToInt64(c.Param("organizationID"))
 		hasPermission := s.Dao.DoesUserHavePermission(userInfo.ID, organizationID, resourceAction.PermissionName())
 
 		// @gmail.com as orgs

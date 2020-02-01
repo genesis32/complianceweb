@@ -24,6 +24,7 @@ INSERT INTO role VALUES (4, 'GCP Administrator');
 INSERT INTO role_permission_xref VALUES (4,(SELECT id FROM permission WHERE value = 'gcp.serviceaccount.write.execute'));
 
 INSERT INTO registered_resources VALUES (1, 'GCP Service Accounts', 'gcp.serviceaccount', true);
+INSERT INTO registered_resources VALUES (2, 'GCP Service Account Keys', 'gcp.serviceaccount.keys', true);
 
 INSERT INTO settings (key, value) VALUES ('bootstrap.enabled', 'true');
 INSERT INTO settings (key, value) VALUES ('oidc.issuer.baseurl', 'https://***REMOVED***.auth0.com/');
