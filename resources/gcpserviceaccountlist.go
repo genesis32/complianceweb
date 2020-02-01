@@ -18,7 +18,7 @@ func (g GcpServiceAccountResourceListGetAction) Method() string {
 }
 
 func (g GcpServiceAccountResourceListGetAction) PermissionName() string {
-	return "gcp.serviceaccount.write.execute"
+	return "gcp.serviceaccount.read.execute"
 }
 
 func (g GcpServiceAccountResourceListGetAction) Execute(w http.ResponseWriter, r *http.Request, params OperationParameters) *OperationResult {

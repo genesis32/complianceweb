@@ -8,6 +8,7 @@ var loadedResources = []OrganizationResourceAction{
 	&GcpServiceAccountResourcePostAction{},
 	&GcpServiceAccountResourceKeyPostAction{},
 	&GcpServiceAccountResourceListGetAction{},
+	&GcpServiceAccountResourceKeyListGetAction{},
 }
 
 type OperationParameters map[string]interface{}
