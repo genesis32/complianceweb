@@ -8,7 +8,7 @@ var loadedResources = []OrganizationResourceAction{
 	&GcpServiceAccountResourcePostAction{},
 	&GcpServiceAccountResourceKeyPostAction{},
 	&GcpServiceAccountResourceListGetAction{},
-	&GcpServiceAccountResourceKeyListGetAction{},
+	&GcpServiceAccountResourceKeyGetAction{},
 }
 
 type OperationParameters map[string]interface{}
@@ -25,6 +25,7 @@ type OrganizationResourceAction interface {
 	Method() string
 	PermissionName() string
 	Execute(w http.ResponseWriter, r *http.Request, params OperationParameters) *OperationResult
+	Path() string
 }
 
 func newOperationResult() *OperationResult {

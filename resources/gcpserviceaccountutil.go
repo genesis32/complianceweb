@@ -15,14 +15,15 @@ import (
 )
 
 type GcpServiceAcountKeyState struct {
-	Name string
+	Name              string
+	CreateKeyResponse *iam.ServiceAccountKey // TODO: Maybe copy this into another structure we control?
 }
 
 type GcpServiceAccountState struct {
 	Disabled       bool
 	ProjectId      string
 	OrganizationID int64 `json:",string,omitempty"`
-	Keys           []GcpServiceAcountKeyState
+	Keys           []*GcpServiceAcountKeyState
 }
 
 func (a GcpServiceAccountState) Value() (driver.Value, error) {

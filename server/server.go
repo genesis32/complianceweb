@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/genesis32/complianceweb/resources"
@@ -29,9 +30,9 @@ type Server struct {
 	registeredResources dao.RegisteredResourcesStore
 }
 
-type OperationMetadata map[string]interface{}
-type OperationResult struct {
-	AuditMetadata      OperationMetadata
+type WebappOperationMetadata map[string]interface{}
+type WebAppOperationResult struct {
+	AuditMetadata      WebappOperationMetadata
 	AuditHumanReadable string
 }
 
@@ -116,7 +117,7 @@ func (s *Server) Shutdown() error {
 	return err
 }
 
-type webAppFunc func(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *OperationResult
+type webAppFunc func(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *WebAppOperationResult
 type resourceApiFunc func(w http.ResponseWriter, r *http.Request, parameters resources.OperationParameters) *resources.OperationResult
 
 func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
@@ -139,7 +140,7 @@ func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
 
 		// TODO: Fix this so it's required in the future
 		if operationResult != nil {
-			auditRecord.Metadata = operationResult.AuditMetadata
+			auditRecord.Metadata = newWebappAuditMetadata(operationResult.AuditMetadata)
 			auditRecord.HumanReadable = operationResult.AuditHumanReadable
 		}
 
@@ -189,8 +190,11 @@ func (s *Server) registerResourceApi(resourceAction resources.OrganizationResour
 
 		operationResult := fn(c.Writer, c.Request, params)
 
-		auditRecord.Metadata = operationResult.AuditMetadata
-		auditRecord.HumanReadable = operationResult.AuditHumanReadable
+		// TODO: Fix this so it's required in the future
+		if operationResult != nil {
+			auditRecord.Metadata = newResourceAuditMetadata(operationResult.AuditMetadata)
+			auditRecord.HumanReadable = operationResult.AuditHumanReadable
+		}
 
 		s.Dao.SealAuditRecord(auditRecord)
 	}
@@ -273,8 +277,18 @@ func (s *Server) Initialize() *gin.Engine {
 	for _, r := range s.registeredResources {
 		resources := resources.FindResourceActions(r.InternalKey)
 		for _, theResource := range resources {
+			path := theResource.Path()
+			if len(strings.TrimSpace(path)) > 0 {
+				if path[0] != '/' {
+					path = fmt.Sprintf("%s/%s", theResource.InternalKey(), path)
+				} else {
+					path = fmt.Sprintf("%s%s", theResource.InternalKey(), path)
+				}
+			} else {
+				path = fmt.Sprintf("%s", theResource.InternalKey())
+			}
 			resourceRoutes.Handle(theResource.Method(),
-				theResource.InternalKey(),
+				path,
 				s.registerResourceApi(theResource, theResource.Execute))
 		}
 	}
@@ -289,4 +303,22 @@ func (s *Server) Initialize() *gin.Engine {
 // Serve the traffic
 func (s *Server) Serve() {
 	s.router.Run()
+}
+
+// TODO: Make it work on a glob?
+func newResourceAuditMetadata(metadata resources.OperationMetadata) dao.AuditMetadata {
+	ret := make(dao.AuditMetadata)
+	for k, v := range metadata {
+		ret[k] = v
+	}
+	return ret
+}
+
+// TODO: Make it work on a glob?
+func newWebappAuditMetadata(metadata WebappOperationMetadata) dao.AuditMetadata {
+	ret := make(dao.AuditMetadata)
+	for k, v := range metadata {
+		ret[k] = v
+	}
+	return ret
 }

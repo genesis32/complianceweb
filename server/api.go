@@ -33,7 +33,7 @@ func contains(n *UserOrganizationResponse, children []*UserOrganizationResponse)
 	return false
 }
 
-func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *OperationResult {
+func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 
 	configKeys := daoHandler.GetSettings(BootstrapConfigurationKey, SystemBaseUrlConfigurationKey)
 	if len(configKeys) == 0 || configKeys[BootstrapConfigurationKey].Value != "true" {
@@ -59,7 +59,7 @@ func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.Dao
 	return nil
 }
 
-func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *OperationResult {
+func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 
 	var createRequest OrganizationCreateRequest
 	if err := c.ShouldBind(&createRequest); err != nil {
@@ -103,7 +103,7 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 	return nil
 }
 
-func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *OperationResult {
+func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	subject, _ := c.Get("authenticated_user_profile")
 	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
@@ -128,7 +128,7 @@ func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandle
 	return nil
 }
 
-func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *OperationResult {
+func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	subject, _ := c.Get("authenticated_user_profile")
 
 	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
@@ -168,7 +168,7 @@ func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.D
 	return nil
 }
 
-func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *OperationResult {
+func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var addRequest AddUserToOrganizationRequest
 
 	if err := c.ShouldBind(&addRequest); err != nil {
@@ -210,7 +210,7 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 	return nil
 }
 
-func OrganizationMetadataApiPutHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *OperationResult {
+func OrganizationMetadataApiPutHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var metadataUpdateRequest OrganizationMetadataUpdateRequest
 
 	if err := c.ShouldBind(&metadataUpdateRequest); err != nil {
@@ -234,7 +234,7 @@ func OrganizationMetadataApiPutHandler(s *Server, store sessions.Store, handler 
 	return nil
 }
 
-func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *OperationResult {
+func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var metadataUpdateRequest OrganizationMetadataUpdateRequest
 
 	if err := c.ShouldBind(&metadataUpdateRequest); err != nil {
@@ -262,13 +262,13 @@ func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler 
 	// TODO: Make this into another object
 	c.JSON(200, response)
 
-	auditRecord := &OperationResult{}
+	auditRecord := &WebAppOperationResult{}
 	auditRecord.AuditHumanReadable = fmt.Sprintf("read metadata for organization: %d", organizationID)
 
 	return auditRecord
 }
 
-func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *OperationResult {
+func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var rolesUpdateRequest SetRolesForUserRequest
 
 	if err := c.ShouldBind(&rolesUpdateRequest); err != nil {
@@ -306,7 +306,7 @@ func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHand
 	return nil
 }
 
-func UserApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *OperationResult {
+func UserApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	subject, _ := c.Get("authenticated_user_profile")
 	t := handler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 

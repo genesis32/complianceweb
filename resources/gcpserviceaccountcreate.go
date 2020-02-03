@@ -25,6 +25,10 @@ type GcpServiceAccountResourcePostAction struct {
 	db *sql.DB
 }
 
+func (g *GcpServiceAccountResourcePostAction) Path() string {
+	return ""
+}
+
 func (g *GcpServiceAccountResourcePostAction) Method() string {
 	return "POST"
 }
@@ -52,40 +56,6 @@ func (g *GcpServiceAccountResourcePostAction) createServiceAccountRecord(emailAd
 	}
 }
 
-func retrieveState(db *sql.DB, serviceAccountEmail string) *GcpServiceAccountState {
-	sqlStatement := `
-		SELECT
-			state
-		FROM
-			resource_gcpserviceaccount
-		WHERE
-			external_ref = $1
-	`
-
-	ret := GcpServiceAccountState{}
-	row := db.QueryRow(sqlStatement, serviceAccountEmail)
-	err := row.Scan(&ret)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return &ret
-}
-
-func updateState(db *sql.DB, serviceAccountEmail string, state *GcpServiceAccountState) {
-	sqlStatement := `
-		UPDATE 
-			resource_gcpserviceaccount
-		SET
-		    state = $2,
-		WHERE
-			external_ref = $1
-	`
-	_, err := db.Exec(sqlStatement, utils.GetNextUniqueId(), serviceAccountEmail, state)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 /*
 	params["organizationID"] = organizationID
 	params["organizationMetadata"] = metadata
@@ -105,6 +75,8 @@ func (g *GcpServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *
 		result.AuditHumanReadable = fmt.Sprintf("error: failed to unmarshal request err: %v", err)
 		return result
 	}
+
+	// TODO: Check that this service account exists in the project.
 
 	a := &GcpServiceAccountResourcePostAction{db: daoHandler.GetRawDatabaseHandle()}
 
@@ -154,4 +126,38 @@ func (g *GcpServiceAccountResourcePostAction) Name() string {
 
 func (g *GcpServiceAccountResourcePostAction) InternalKey() string {
 	return "gcp.serviceaccount"
+}
+
+func retrieveState(db *sql.DB, serviceAccountEmail string) *GcpServiceAccountState {
+	sqlStatement := `
+		SELECT
+			state
+		FROM
+			resource_gcpserviceaccount
+		WHERE
+			external_ref = $1
+	`
+
+	ret := GcpServiceAccountState{}
+	row := db.QueryRow(sqlStatement, serviceAccountEmail)
+	err := row.Scan(&ret)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return &ret
+}
+
+func updateState(db *sql.DB, serviceAccountEmail string, state *GcpServiceAccountState) {
+	sqlStatement := `
+		UPDATE 
+			resource_gcpserviceaccount
+		SET
+		    state = $2
+		WHERE
+			external_ref = $1
+	`
+	_, err := db.Exec(sqlStatement, serviceAccountEmail, state)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

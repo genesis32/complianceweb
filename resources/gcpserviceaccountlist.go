@@ -5,6 +5,10 @@ import "net/http"
 type GcpServiceAccountResourceListGetAction struct {
 }
 
+func (g GcpServiceAccountResourceListGetAction) Path() string {
+	return ""
+}
+
 func (g GcpServiceAccountResourceListGetAction) Name() string {
 	return "Gcp Service Account List"
 }

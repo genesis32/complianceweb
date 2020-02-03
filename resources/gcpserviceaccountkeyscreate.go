@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 )
 
@@ -19,6 +18,10 @@ type GcpServiceAccountKeyCreateResponse struct {
 
 type GcpServiceAccountResourceKeyPostAction struct {
 	db *sql.DB
+}
+
+func (g *GcpServiceAccountResourceKeyPostAction) Path() string {
+	return ""
 }
 
 func (g GcpServiceAccountResourceKeyPostAction) Name() string {
@@ -38,8 +41,9 @@ func (g GcpServiceAccountResourceKeyPostAction) PermissionName() string {
 }
 
 func (g GcpServiceAccountResourceKeyPostAction) Execute(w http.ResponseWriter, r *http.Request, params OperationParameters) *OperationResult {
-	_, metadata, _ := mapAppParameters(params)
+	daoHandler, metadata, _ := mapAppParameters(params)
 
+	a := &GcpServiceAccountResourcePostAction{db: daoHandler.GetRawDatabaseHandle()}
 	result := newOperationResult()
 
 	var req GcpServiceAccountKeyCreateRequest
@@ -59,11 +63,22 @@ func (g GcpServiceAccountResourceKeyPostAction) Execute(w http.ResponseWriter, r
 			return result
 		}
 		serviceAccountKey, err := createKey(ctx, jsonBytes, req.GcpEmailIdentifier)
-		state := retrieveState(g.db, req.GcpEmailIdentifier)
-		newKey := GcpServiceAcountKeyState{Name: serviceAccountKey.Name}
+		if err != nil {
+			w.WriteHeader(500)
+			result.AuditHumanReadable = fmt.Sprintf("failed: failed to create key err: %v", err)
+			return result
+		}
+
+		state := retrieveState(a.db, req.GcpEmailIdentifier)
+		newKey := &GcpServiceAcountKeyState{Name: serviceAccountKey.Name, CreateKeyResponse: serviceAccountKey}
 		state.Keys = append(state.Keys, newKey)
-		updateState(g.db, req.GcpEmailIdentifier, state)
-		log.Printf("%s", serviceAccountKey.Name)
+		updateState(a.db, req.GcpEmailIdentifier, state)
+		result.AuditHumanReadable = fmt.Sprintf("created new key for service account: %s", req.GcpEmailIdentifier)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(newKey)
+
 	}
 
 	return result

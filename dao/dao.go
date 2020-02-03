@@ -2,6 +2,8 @@ package dao
 
 import (
 	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -22,6 +24,23 @@ type RegisteredResourcesStore map[string]*RegisteredResource
 type SettingsStore map[string]*Setting
 type UserRoleStore map[int64][]Role
 
+type AuditMetadata map[string]interface{}
+
+func (a AuditMetadata) Value() (driver.Value, error) {
+	return json.Marshal(a)
+}
+
+// Make the Attrs struct implement the sql.Scanner interface. This method
+// simply decodes a JSON-encoded value into the struct fields.
+func (a *AuditMetadata) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(b, &a)
+}
+
 type AuditRecord struct {
 	ID                 int64
 	CreatedTimestamp   time.Time
@@ -29,7 +48,7 @@ type AuditRecord struct {
 	OrganizationID     int64
 	InternalKey        string
 	Method             string
-	Metadata           map[string]interface{}
+	Metadata           AuditMetadata
 	HumanReadable      string
 }
 
@@ -106,12 +125,13 @@ func (d *Dao) SealAuditRecord(record *AuditRecord) {
 			resource_audit_log
 		SET
 		human_readable = $1,
+		metadata = $3,
 		current_state = 1
 		WHERE
 			id = $2 AND
 			current_state = 0
 `
-	_, err := d.Db.Exec(sqlStatement, record.HumanReadable, record.ID)
+	_, err := d.Db.Exec(sqlStatement, record.HumanReadable, record.ID, record.Metadata)
 	if err != nil {
 		log.Fatal(err)
 	}
