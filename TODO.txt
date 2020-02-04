@@ -1,3 +1,4 @@
-# Create Organization
 # Assign roles to gcp service account
+# Looks interesting: https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts
+# GCP Cloud Resource API needs to be enabled
   

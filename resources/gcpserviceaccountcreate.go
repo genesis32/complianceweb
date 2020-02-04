@@ -15,15 +15,14 @@ import (
 
 type GcpServiceAccountCreateRequest struct {
 	UniqueIdentifier string
+	Roles            []string
 }
 
 type GcpServiceAccountCreateResponse struct {
 	UniqueIdentifier string
 }
 
-type GcpServiceAccountResourcePostAction struct {
-	db *sql.DB
-}
+type GcpServiceAccountResourcePostAction struct{ db *sql.DB }
 
 func (g *GcpServiceAccountResourcePostAction) Path() string {
 	return ""
@@ -89,7 +88,7 @@ func (g *GcpServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *
 			result.AuditHumanReadable = fmt.Sprintf("failed: failed to unmarshal credentials err: %v", err)
 			return result
 		}
-		serviceAccount, err := createServiceAccount(ctx, jsonBytes, projectId, req.UniqueIdentifier)
+		serviceAccount, err := createServiceAccount(ctx, jsonBytes, projectId, req.UniqueIdentifier, req.Roles)
 		if err != nil {
 			if e, ok := err.(*googleapi.Error); ok {
 				w.WriteHeader(e.Code)

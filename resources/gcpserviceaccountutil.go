@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/iam/v1"
 )
 
@@ -41,14 +42,14 @@ func (a *GcpServiceAccountState) Scan(value interface{}) error {
 	return json.Unmarshal(b, &a)
 }
 
-func createServiceAccount(ctx context.Context, jsonCredential []byte, projectId, uniqueName string) (*iam.ServiceAccount, error) {
+func createServiceAccount(ctx context.Context, jsonCredential []byte, projectId, uniqueName string, roles []string) (*iam.ServiceAccount, error) {
 	var err error
 
 	// TODO: Store and cache this somewhere.
 	credentials, err := google.CredentialsFromJSON(ctx, jsonCredential, iam.CloudPlatformScope)
-	client := oauth2.NewClient(context.Background(), credentials.TokenSource)
+	client := oauth2.NewClient(ctx, credentials.TokenSource)
 
-	service, err := iam.New(client)
+	iamService, err := iam.New(client)
 	if err != nil {
 		return nil, errors.Wrap(err, "iam.New failed")
 	}
@@ -56,24 +57,47 @@ func createServiceAccount(ctx context.Context, jsonCredential []byte, projectId,
 	resource := fmt.Sprintf("projects/%s", projectId)
 	request := &iam.CreateServiceAccountRequest{AccountId: uniqueName, ServiceAccount: &iam.ServiceAccount{DisplayName: uniqueName}}
 
-	serviceAccount, err := service.Projects.ServiceAccounts.Create(resource, request).Do()
+	serviceAccount, err := iamService.Projects.ServiceAccounts.Create(resource, request).Do()
 	if err != nil {
 		return nil, errors.Wrapf(err, "CreateServiceAccount failed")
 	}
+
+	cloudresourcemanagerService, err := cloudresourcemanager.New(client)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rb := &cloudresourcemanager.GetIamPolicyRequest{
+		// TODO: Add desired fields of the request body.
+	}
+
+	iamPolicyResp, err := cloudresourcemanagerService.Projects.GetIamPolicy(projectId, rb).Context(ctx).Do()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// TODO: Validate me
+	for _, role := range roles {
+		iamPolicyResp.Bindings = append(iamPolicyResp.Bindings, &cloudresourcemanager.Binding{Members: []string{"serviceAccount:" + serviceAccount.Email}, Role: role})
+	}
+
+	sb := &cloudresourcemanager.SetIamPolicyRequest{
+		Policy: iamPolicyResp,
+	}
+	_, err = cloudresourcemanagerService.Projects.SetIamPolicy(projectId, sb).Context(ctx).Do()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return serviceAccount, nil
 }
 
-func createKey(ctx context.Context, jsonCredential []byte, serviceAccountEmail string) (*iam.ServiceAccountKey, error) {
+func createServiceAccountKey(ctx context.Context, jsonCredential []byte, serviceAccountEmail string) (*iam.ServiceAccountKey, error) {
 	var err error
 	// Make a client that relies on a service account from the db.
 
 	credentials, err := google.CredentialsFromJSON(ctx, jsonCredential, iam.CloudPlatformScope)
 	client := oauth2.NewClient(context.Background(), credentials.TokenSource)
-
-	//	client, err := google.DefaultClient(context.Background(), iam.CloudPlatformScope)
-	//	if err != nil {
-	//		return nil, fmt.Errorf("google.DefaultClient: %v", err)
-	//	}
 
 	service, err := iam.New(client)
 	if err != nil {

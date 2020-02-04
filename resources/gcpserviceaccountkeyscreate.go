@@ -62,7 +62,7 @@ func (g GcpServiceAccountResourceKeyPostAction) Execute(w http.ResponseWriter, r
 			result.AuditHumanReadable = fmt.Sprintf("failed: failed to unmarshal credentials err: %v", err)
 			return result
 		}
-		serviceAccountKey, err := createKey(ctx, jsonBytes, req.GcpEmailIdentifier)
+		serviceAccountKey, err := createServiceAccountKey(ctx, jsonBytes, req.GcpEmailIdentifier)
 		if err != nil {
 			w.WriteHeader(500)
 			result.AuditHumanReadable = fmt.Sprintf("failed: failed to create key err: %v", err)
@@ -78,7 +78,6 @@ func (g GcpServiceAccountResourceKeyPostAction) Execute(w http.ResponseWriter, r
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(newKey)
-
 	}
 
 	return result
