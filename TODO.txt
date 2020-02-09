@@ -1,4 +1,17 @@
-# Assign roles to gcp service account
-# Looks interesting: https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts
-# GCP Cloud Resource API needs to be enabled
-  
+- Assign roles to gcp service account
+- Looks interesting: https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts
+# Implement ServiceAccount list for GCP
+# Implement ServiceAccount key delete for GCP
+# Way to update role for GCP service account
+# Add another resource type (perhaps aws service account)?
+# App deployable in Docker
+# Remove front-end cruft from the old version.
+# See if we can get implicit openid grant working for auth0 and maybe okta?
+# Make sure our audit events log json
+# Database encryption of sensitive fields (cookies, gcp credentials, etc)
+# Add a production test to make sure we don't accept jwts that aren't signed.
+# Implement dual control for 1 resource type (perhaps gcp service account create)
+
+# Start planning what a front-end application may look like.
+# A README
+    # GCP Cloud Resource API needs to be enabled
