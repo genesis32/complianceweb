@@ -1,4 +1,4 @@
-package resources
+package gcp
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/genesis32/complianceweb/resources"
 
 	"google.golang.org/api/googleapi"
 
@@ -62,11 +64,11 @@ func (g *GcpServiceAccountResourcePostAction) createServiceAccountRecord(emailAd
 	params["resourceDao"] = s.ResourceDao
 	params["userInfo"] = userInfo
 */
-func (g *GcpServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *http.Request, params OperationParameters) *OperationResult {
+func (g *GcpServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 
 	daoHandler, metadata, organizationID := mapAppParameters(params)
 
-	result := newOperationResult()
+	result := resources.NewOperationResult()
 
 	var req GcpServiceAccountCreateRequest
 	err := json.NewDecoder(r.Body).Decode(&req)

@@ -4,13 +4,6 @@ import (
 	"net/http"
 )
 
-var loadedResources = []OrganizationResourceAction{
-	&GcpServiceAccountResourcePostAction{},
-	&GcpServiceAccountResourceKeyPostAction{},
-	&GcpServiceAccountResourceListGetAction{},
-	&GcpServiceAccountResourceKeyGetAction{},
-}
-
 type OperationParameters map[string]interface{}
 type OperationMetadata map[string]interface{}
 
@@ -28,16 +21,6 @@ type OrganizationResourceAction interface {
 	Path() string
 }
 
-func newOperationResult() *OperationResult {
+func NewOperationResult() *OperationResult {
 	return &OperationResult{AuditMetadata: make(map[string]interface{}), AuditHumanReadable: "<<not defined>>"}
-}
-
-func FindResourceActions(internalKey string) []OrganizationResourceAction {
-	var ret []OrganizationResourceAction
-	for _, v := range loadedResources {
-		if internalKey == v.InternalKey() {
-			ret = append(ret, v)
-		}
-	}
-	return ret
 }

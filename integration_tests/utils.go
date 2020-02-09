@@ -26,10 +26,10 @@ func simulateLogin(handler dao.DaoHandler, inviteCode string) string {
 
 func createBaseRequest(t *testing.T, server *httptest.Server, bearerToken, method, path string) *http.Request {
 	req, err := http.NewRequest(method, server.URL+path, nil)
-	req.Header.Add("Authorization", "Bearer "+bearerToken)
 	if err != nil {
 		t.Fatal(err)
 	}
+	req.Header.Add("Authorization", "Bearer "+bearerToken)
 	return req
 }
 

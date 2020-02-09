@@ -1,4 +1,4 @@
-package resources
+package gcp
 
 import (
 	"database/sql"
@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/genesis32/complianceweb/resources"
 
 	"google.golang.org/api/iam/v1"
 )
@@ -39,7 +41,7 @@ func (g GcpServiceAccountResourceKeyGetAction) PermissionName() string {
 	return "gcp.serviceaccount.read.execute"
 }
 
-func (g GcpServiceAccountResourceKeyGetAction) Execute(w http.ResponseWriter, r *http.Request, params OperationParameters) *OperationResult {
+func (g GcpServiceAccountResourceKeyGetAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 
 	daoHandler, _, _ := mapAppParameters(params)
 
@@ -51,7 +53,7 @@ func (g GcpServiceAccountResourceKeyGetAction) Execute(w http.ResponseWriter, r 
 		return nil
 	}
 
-	result := newOperationResult()
+	result := resources.NewOperationResult()
 
 	serviceAccountRef, state := retrieveStateForKey(a.db, name[0])
 	if serviceAccountRef == "" {

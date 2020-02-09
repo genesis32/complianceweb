@@ -1,6 +1,10 @@
-package resources
+package gcp
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/genesis32/complianceweb/resources"
+)
 
 type GcpServiceAccountResourceListGetAction struct {
 }
@@ -25,8 +29,8 @@ func (g GcpServiceAccountResourceListGetAction) PermissionName() string {
 	return "gcp.serviceaccount.read.execute"
 }
 
-func (g GcpServiceAccountResourceListGetAction) Execute(w http.ResponseWriter, r *http.Request, params OperationParameters) *OperationResult {
-	result := newOperationResult()
+func (g GcpServiceAccountResourceListGetAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
+	result := resources.NewOperationResult()
 
 	mapAppParameters(params)
 

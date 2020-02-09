@@ -1,4 +1,4 @@
-package resources
+package gcp
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/genesis32/complianceweb/resources"
 )
 
 type GcpServiceAccountKeyCreateRequest struct {
@@ -40,11 +42,11 @@ func (g GcpServiceAccountResourceKeyPostAction) PermissionName() string {
 	return "gcp.serviceaccount.write.execute"
 }
 
-func (g GcpServiceAccountResourceKeyPostAction) Execute(w http.ResponseWriter, r *http.Request, params OperationParameters) *OperationResult {
+func (g GcpServiceAccountResourceKeyPostAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 	daoHandler, metadata, _ := mapAppParameters(params)
 
 	a := &GcpServiceAccountResourcePostAction{db: daoHandler.GetRawDatabaseHandle()}
-	result := newOperationResult()
+	result := resources.NewOperationResult()
 
 	var req GcpServiceAccountKeyCreateRequest
 	err := json.NewDecoder(r.Body).Decode(&req)

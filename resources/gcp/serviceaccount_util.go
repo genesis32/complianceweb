@@ -1,4 +1,4 @@
-package resources
+package gcp
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+
+	"github.com/genesis32/complianceweb/resources"
 
 	"github.com/genesis32/complianceweb/dao"
 	"github.com/pkg/errors"
@@ -114,7 +116,7 @@ func createServiceAccountKey(ctx context.Context, jsonCredential []byte, service
 	return key, nil
 }
 
-func mapAppParameters(params OperationParameters) (dao.ResourceDaoHandler, dao.OrganizationMetadata, int64) {
+func mapAppParameters(params resources.OperationParameters) (dao.ResourceDaoHandler, dao.OrganizationMetadata, int64) {
 	daoHandler, ok := params["resourceDao"].(dao.ResourceDaoHandler)
 	if !ok {
 		log.Fatal("params['resourceDao'] not a ResourceDao type")

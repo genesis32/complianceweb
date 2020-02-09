@@ -45,7 +45,7 @@ func initCookieKeys(daoHandler dao.DaoHandler) ([]byte, []byte) {
 	encKeySetting.Base64EncodeValue(encKey)
 	err := daoHandler.UpdateSettings(authKeySetting, encKeySetting)
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Fatal(err)
 	}
 
 	return authKey, encKey
@@ -200,18 +200,6 @@ func (s *Server) registerResourceApi(resourceAction resources.OrganizationResour
 	}
 }
 
-func Logger() gin.HandlerFunc {
-
-	return func(c *gin.Context) {
-
-		statusCode := c.Writer.Status()
-		if statusCode >= 400 {
-			//ok this is an request with error, let's make a record for it
-			//log body here
-		}
-	}
-}
-
 func validOIDCTokenRequired(s *Server) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authorizationHeader := c.GetHeader("Authorization")
@@ -275,8 +263,8 @@ func (s *Server) Initialize() *gin.Engine {
 
 	resourceRoutes := apiRoutes.Group("/resources/:organizationID")
 	for _, r := range s.registeredResources {
-		resources := resources.FindResourceActions(r.InternalKey)
-		for _, theResource := range resources {
+		keyResources := FindResourceActions(r.InternalKey)
+		for _, theResource := range keyResources {
 			path := theResource.Path()
 			if len(strings.TrimSpace(path)) > 0 {
 				if path[0] != '/' {
@@ -302,7 +290,10 @@ func (s *Server) Initialize() *gin.Engine {
 
 // Serve the traffic
 func (s *Server) Serve() {
-	s.router.Run()
+	err := s.router.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 // TODO: Make it work on a glob?
