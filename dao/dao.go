@@ -474,7 +474,16 @@ ORDER BY ordernum DESC LIMIT 1;
 func (d *Dao) Open() {
 	var err error
 
-	dbConnectionString := os.Getenv("PGSQL_CONNECTION_STRING")
+	var dbConnectionString string
+	if os.Getenv("ENV") == "prod" {
+		dbConnectionString = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname sslmode=disable",
+			os.Getenv("ENTERPRISEPORTAL2_POSTGRES_PORT_5432_TCP_ADDR"),
+			os.Getenv("ENTERPRISEPORTAL2_POSTGRES_PORT_5432_TCP_PORT"),
+			os.Getenv("ENTERPRISEPORTAL2_POSTGRES_ENV_POSTGRES_USER"),
+			os.Getenv("ENTERPRISEPORTAL2_POSTGRES_ENV_POSTGRES_PASSWORD"))
+	} else {
+		dbConnectionString = os.Getenv("PGSQL_CONNECTION_STRING")
+	}
 	if len(dbConnectionString) == 0 {
 		panic("PGSQL_CONNECTION_STRING undefined")
 	}

@@ -71,7 +71,7 @@ func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
 	{
 		dbSettings := daoHandler.GetSettings(OIDCIssuerBaseUrlConfigurationKey, Auth0ClientIdConfigurationKey, Auth0ClientSecretConfigurationKey, SystemBaseUrlConfigurationKey)
 		if len(dbSettings) != 4 {
-			panic("parameters not loaded. Do all oidc configuration parameters exist in the db?")
+			log.Fatal("parameters not loaded. Do all oidc configuration parameters exist in the db?")
 		}
 		ret.OIDCIssuer = dbSettings[OIDCIssuerBaseUrlConfigurationKey].Value
 		ret.Auth0ClientID = dbSettings[Auth0ClientIdConfigurationKey].Value
