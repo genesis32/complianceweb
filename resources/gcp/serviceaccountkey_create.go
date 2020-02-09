@@ -10,45 +10,45 @@ import (
 	"github.com/genesis32/complianceweb/resources"
 )
 
-type GcpServiceAccountKeyCreateRequest struct {
+type ServiceAccountKeyCreateRequest struct {
 	GcpEmailIdentifier string
 }
 
-type GcpServiceAccountKeyCreateResponse struct {
+type ServiceAccountKeyCreateResponse struct {
 	UniqueIdentifier string
 }
 
-type GcpServiceAccountResourceKeyPostAction struct {
+type ServiceAccountResourceKeyPostAction struct {
 	db *sql.DB
 }
 
-func (g *GcpServiceAccountResourceKeyPostAction) Path() string {
+func (g *ServiceAccountResourceKeyPostAction) Path() string {
 	return ""
 }
 
-func (g GcpServiceAccountResourceKeyPostAction) Name() string {
+func (g ServiceAccountResourceKeyPostAction) Name() string {
 	return "Create GCP Service Account Key"
 }
 
-func (g GcpServiceAccountResourceKeyPostAction) InternalKey() string {
+func (g ServiceAccountResourceKeyPostAction) InternalKey() string {
 	return "gcp.serviceaccount.keys"
 }
 
-func (g GcpServiceAccountResourceKeyPostAction) Method() string {
+func (g ServiceAccountResourceKeyPostAction) Method() string {
 	return "POST"
 }
 
-func (g GcpServiceAccountResourceKeyPostAction) PermissionName() string {
+func (g ServiceAccountResourceKeyPostAction) PermissionName() string {
 	return "gcp.serviceaccount.write.execute"
 }
 
-func (g GcpServiceAccountResourceKeyPostAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
+func (g ServiceAccountResourceKeyPostAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 	daoHandler, metadata, _ := mapAppParameters(params)
 
-	a := &GcpServiceAccountResourcePostAction{db: daoHandler.GetRawDatabaseHandle()}
+	a := &ServiceAccountResourcePostAction{db: daoHandler.GetRawDatabaseHandle()}
 	result := resources.NewOperationResult()
 
-	var req GcpServiceAccountKeyCreateRequest
+	var req ServiceAccountKeyCreateRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -72,7 +72,7 @@ func (g GcpServiceAccountResourceKeyPostAction) Execute(w http.ResponseWriter, r
 		}
 
 		state := retrieveState(a.db, req.GcpEmailIdentifier)
-		newKey := &GcpServiceAcountKeyState{Name: serviceAccountKey.Name, CreateKeyResponse: serviceAccountKey}
+		newKey := &ServiceAcountKeyState{Name: serviceAccountKey.Name, CreateKeyResponse: serviceAccountKey}
 		state.Keys = append(state.Keys, newKey)
 		updateState(a.db, req.GcpEmailIdentifier, state)
 		result.AuditHumanReadable = fmt.Sprintf("created new key for service account: %s", req.GcpEmailIdentifier)

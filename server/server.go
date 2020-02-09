@@ -263,7 +263,7 @@ func (s *Server) Initialize() *gin.Engine {
 
 	resourceRoutes := apiRoutes.Group("/resources/:organizationID")
 	for _, r := range s.registeredResources {
-		keyResources := FindResourceActions(r.InternalKey)
+		keyResources := resources.FindResourceActions(r.InternalKey, loadedResources)
 		for _, theResource := range keyResources {
 			path := theResource.Path()
 			if len(strings.TrimSpace(path)) > 0 {

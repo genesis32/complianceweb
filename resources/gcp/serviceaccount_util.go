@@ -17,25 +17,25 @@ import (
 	"google.golang.org/api/iam/v1"
 )
 
-type GcpServiceAcountKeyState struct {
+type ServiceAcountKeyState struct {
 	Name              string
 	CreateKeyResponse *iam.ServiceAccountKey // TODO: Maybe copy this into another structure we control?
 }
 
-type GcpServiceAccountState struct {
+type ServiceAccountState struct {
 	Disabled       bool
 	ProjectId      string
 	OrganizationID int64 `json:",string,omitempty"`
-	Keys           []*GcpServiceAcountKeyState
+	Keys           []*ServiceAcountKeyState
 }
 
-func (a GcpServiceAccountState) Value() (driver.Value, error) {
+func (a ServiceAccountState) Value() (driver.Value, error) {
 	return json.Marshal(a)
 }
 
 // Make the Attrs struct implement the sql.Scanner interface. This method
 // simply decodes a JSON-encoded value into the struct fields.
-func (a *GcpServiceAccountState) Scan(value interface{}) error {
+func (a *ServiceAccountState) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -49,6 +49,9 @@ func createServiceAccount(ctx context.Context, jsonCredential []byte, projectId,
 
 	// TODO: Store and cache this somewhere.
 	credentials, err := google.CredentialsFromJSON(ctx, jsonCredential, iam.CloudPlatformScope)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read credentials from json")
+	}
 	client := oauth2.NewClient(ctx, credentials.TokenSource)
 
 	iamService, err := iam.New(client)

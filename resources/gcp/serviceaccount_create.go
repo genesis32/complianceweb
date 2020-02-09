@@ -15,31 +15,31 @@ import (
 	"github.com/genesis32/complianceweb/utils"
 )
 
-type GcpServiceAccountCreateRequest struct {
+type ServiceAccountCreateRequest struct {
 	UniqueIdentifier string
 	ProjectID        string
 	Roles            []string
 }
 
-type GcpServiceAccountCreateResponse struct {
+type ServiceAccountCreateResponse struct {
 	UniqueIdentifier string
 }
 
-type GcpServiceAccountResourcePostAction struct{ db *sql.DB }
+type ServiceAccountResourcePostAction struct{ db *sql.DB }
 
-func (g *GcpServiceAccountResourcePostAction) Path() string {
+func (g *ServiceAccountResourcePostAction) Path() string {
 	return ""
 }
 
-func (g *GcpServiceAccountResourcePostAction) Method() string {
+func (g *ServiceAccountResourcePostAction) Method() string {
 	return "POST"
 }
 
-func (g *GcpServiceAccountResourcePostAction) PermissionName() string {
+func (g *ServiceAccountResourcePostAction) PermissionName() string {
 	return "gcp.serviceaccount.write.execute"
 }
 
-func (g *GcpServiceAccountResourcePostAction) createServiceAccountRecord(emailAddress string, state GcpServiceAccountState) {
+func (g *ServiceAccountResourcePostAction) createServiceAccountRecord(emailAddress string, state ServiceAccountState) {
 	var err error
 	jsonBytes, err := json.Marshal(state)
 	if err != nil {
@@ -64,13 +64,13 @@ func (g *GcpServiceAccountResourcePostAction) createServiceAccountRecord(emailAd
 	params["resourceDao"] = s.ResourceDao
 	params["userInfo"] = userInfo
 */
-func (g *GcpServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
+func (g *ServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 
 	daoHandler, metadata, organizationID := mapAppParameters(params)
 
 	result := resources.NewOperationResult()
 
-	var req GcpServiceAccountCreateRequest
+	var req ServiceAccountCreateRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -80,7 +80,7 @@ func (g *GcpServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *
 
 	// TODO: Check that this service account exists in the project.
 
-	a := &GcpServiceAccountResourcePostAction{db: daoHandler.GetRawDatabaseHandle()}
+	a := &ServiceAccountResourcePostAction{db: daoHandler.GetRawDatabaseHandle()}
 
 	if credentials, ok := metadata["gcpCredentials"]; ok {
 		ctx := context.Background()
@@ -104,7 +104,7 @@ func (g *GcpServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *
 			}
 		}
 
-		initialState := GcpServiceAccountState{}
+		initialState := ServiceAccountState{}
 		initialState.Disabled = serviceAccount.Disabled
 		initialState.OrganizationID = organizationID
 		initialState.ProjectId = req.ProjectID
@@ -121,15 +121,15 @@ func (g *GcpServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *
 	}
 }
 
-func (g *GcpServiceAccountResourcePostAction) Name() string {
+func (g *ServiceAccountResourcePostAction) Name() string {
 	return "GCP Service Account Manager Create"
 }
 
-func (g *GcpServiceAccountResourcePostAction) InternalKey() string {
+func (g *ServiceAccountResourcePostAction) InternalKey() string {
 	return "gcp.serviceaccount"
 }
 
-func retrieveState(db *sql.DB, serviceAccountEmail string) *GcpServiceAccountState {
+func retrieveState(db *sql.DB, serviceAccountEmail string) *ServiceAccountState {
 	sqlStatement := `
 		SELECT
 			state
@@ -139,7 +139,7 @@ func retrieveState(db *sql.DB, serviceAccountEmail string) *GcpServiceAccountSta
 			external_ref = $1
 	`
 
-	ret := GcpServiceAccountState{}
+	ret := ServiceAccountState{}
 	row := db.QueryRow(sqlStatement, serviceAccountEmail)
 	err := row.Scan(&ret)
 	if err != nil {
@@ -148,7 +148,7 @@ func retrieveState(db *sql.DB, serviceAccountEmail string) *GcpServiceAccountSta
 	return &ret
 }
 
-func updateState(db *sql.DB, serviceAccountEmail string, state *GcpServiceAccountState) {
+func updateState(db *sql.DB, serviceAccountEmail string, state *ServiceAccountState) {
 	sqlStatement := `
 		UPDATE 
 			resource_gcpserviceaccount

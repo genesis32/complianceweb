@@ -13,39 +13,39 @@ import (
 	"google.golang.org/api/iam/v1"
 )
 
-type GcpServiceAccountKeyGetResponse struct {
+type ServiceAccountKeyGetResponse struct {
 	Key *iam.ServiceAccountKey
 }
 
-type GcpServiceAccountResourceKeyGetAction struct {
+type ServiceAccountResourceKeyGetAction struct {
 	db *sql.DB
 }
 
-func (g GcpServiceAccountResourceKeyGetAction) Path() string {
+func (g ServiceAccountResourceKeyGetAction) Path() string {
 	return ""
 }
 
-func (g GcpServiceAccountResourceKeyGetAction) Name() string {
+func (g ServiceAccountResourceKeyGetAction) Name() string {
 	return "Gcp Service Account List"
 }
 
-func (g GcpServiceAccountResourceKeyGetAction) InternalKey() string {
+func (g ServiceAccountResourceKeyGetAction) InternalKey() string {
 	return "gcp.serviceaccount.keys"
 }
 
-func (g GcpServiceAccountResourceKeyGetAction) Method() string {
+func (g ServiceAccountResourceKeyGetAction) Method() string {
 	return "GET"
 }
 
-func (g GcpServiceAccountResourceKeyGetAction) PermissionName() string {
+func (g ServiceAccountResourceKeyGetAction) PermissionName() string {
 	return "gcp.serviceaccount.read.execute"
 }
 
-func (g GcpServiceAccountResourceKeyGetAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
+func (g ServiceAccountResourceKeyGetAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 
 	daoHandler, _, _ := mapAppParameters(params)
 
-	a := &GcpServiceAccountResourceKeyGetAction{db: daoHandler.GetRawDatabaseHandle()}
+	a := &ServiceAccountResourceKeyGetAction{db: daoHandler.GetRawDatabaseHandle()}
 
 	name, ok := r.URL.Query()["name"]
 	if !ok {
@@ -75,7 +75,7 @@ func (g GcpServiceAccountResourceKeyGetAction) Execute(w http.ResponseWriter, r 
 	return nil
 }
 
-func retrieveStateForKey(db *sql.DB, keyID string) (string, *GcpServiceAccountState) {
+func retrieveStateForKey(db *sql.DB, keyID string) (string, *ServiceAccountState) {
 	// TODO: Validate KeyID format, also this is freaking horrible FIX IT
 	m := make(map[string]string)
 	m["name"] = keyID
@@ -94,7 +94,7 @@ func retrieveStateForKey(db *sql.DB, keyID string) (string, *GcpServiceAccountSt
 	`
 
 	var serviceAccount string
-	ret := GcpServiceAccountState{}
+	ret := ServiceAccountState{}
 
 	row := db.QueryRow(sqlStatement, string(bytes))
 	err = row.Scan(&serviceAccount, &ret)

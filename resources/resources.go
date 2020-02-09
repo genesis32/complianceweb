@@ -24,3 +24,13 @@ type OrganizationResourceAction interface {
 func NewOperationResult() *OperationResult {
 	return &OperationResult{AuditMetadata: make(map[string]interface{}), AuditHumanReadable: "<<not defined>>"}
 }
+
+func FindResourceActions(internalKey string, loadedResources []OrganizationResourceAction) []OrganizationResourceAction {
+	var ret []OrganizationResourceAction
+	for _, v := range loadedResources {
+		if internalKey == v.InternalKey() {
+			ret = append(ret, v)
+		}
+	}
+	return ret
+}

@@ -6,30 +6,30 @@ import (
 	"github.com/genesis32/complianceweb/resources"
 )
 
-type GcpServiceAccountResourceListGetAction struct {
+type ServiceAccountResourceListGetAction struct {
 }
 
-func (g GcpServiceAccountResourceListGetAction) Path() string {
+func (g ServiceAccountResourceListGetAction) Path() string {
 	return ""
 }
 
-func (g GcpServiceAccountResourceListGetAction) Name() string {
+func (g ServiceAccountResourceListGetAction) Name() string {
 	return "Gcp Service Account List"
 }
 
-func (g GcpServiceAccountResourceListGetAction) InternalKey() string {
+func (g ServiceAccountResourceListGetAction) InternalKey() string {
 	return "gcp.serviceaccount"
 }
 
-func (g GcpServiceAccountResourceListGetAction) Method() string {
+func (g ServiceAccountResourceListGetAction) Method() string {
 	return "GET"
 }
 
-func (g GcpServiceAccountResourceListGetAction) PermissionName() string {
+func (g ServiceAccountResourceListGetAction) PermissionName() string {
 	return "gcp.serviceaccount.read.execute"
 }
 
-func (g GcpServiceAccountResourceListGetAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
+func (g ServiceAccountResourceListGetAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 	result := resources.NewOperationResult()
 
 	mapAppParameters(params)
