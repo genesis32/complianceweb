@@ -15,18 +15,6 @@ type UserOrganizationResponse struct {
 	Children []*UserOrganizationResponse
 }
 
-type GcpServiceAccountCreateRequest struct {
-	OwningOrganizationID int64 `json:",string,omitempty"`
-	OwningGcpProjectID   string
-	DisplayName          string
-}
-
-type GcpServiceAccountCreateResponse struct {
-	ID         string
-	State      string
-	Credential string
-}
-
 type OrganizationCreateRequest struct {
 	ParentOrganizationID int64 `json:",string,omitempty"`
 	Name                 string

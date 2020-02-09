@@ -302,7 +302,6 @@ func testCreateGcpServiceAccount(baseServer *server.Server, s *httptest.Server) 
 
 		data := &server.OrganizationMetadataUpdateRequest{Metadata: make(map[string]interface{})}
 		data.Metadata["gcpCredentials"] = "{}"
-		data.Metadata["gcpProject"] = "foobar-project-id"
 		updateMetadata(t, cl, s, subOrganizationID0, data)
 
 		// Create a base organization

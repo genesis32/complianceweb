@@ -15,6 +15,7 @@ import (
 
 type GcpServiceAccountCreateRequest struct {
 	UniqueIdentifier string
+	ProjectID        string
 	Roles            []string
 }
 
@@ -81,14 +82,13 @@ func (g *GcpServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *
 
 	if credentials, ok := metadata["gcpCredentials"]; ok {
 		ctx := context.Background()
-		projectId := metadata["gcpProject"].(string)
 		jsonBytes, err := json.Marshal(credentials)
 		if err != nil {
 			w.WriteHeader(500)
 			result.AuditHumanReadable = fmt.Sprintf("failed: failed to unmarshal credentials err: %v", err)
 			return result
 		}
-		serviceAccount, err := createServiceAccount(ctx, jsonBytes, projectId, req.UniqueIdentifier, req.Roles)
+		serviceAccount, err := createServiceAccount(ctx, jsonBytes, req.ProjectID, req.UniqueIdentifier, req.Roles)
 		if err != nil {
 			if e, ok := err.(*googleapi.Error); ok {
 				w.WriteHeader(e.Code)
@@ -105,7 +105,7 @@ func (g *GcpServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *
 		initialState := GcpServiceAccountState{}
 		initialState.Disabled = serviceAccount.Disabled
 		initialState.OrganizationID = organizationID
-		initialState.ProjectId = projectId
+		initialState.ProjectId = req.ProjectID
 
 		a.createServiceAccountRecord(serviceAccount.Email, initialState)
 		w.WriteHeader(200)
