@@ -178,7 +178,7 @@ func (s *Server) registerResourceApi(resourceAction resources.OrganizationResour
 		/* TODO: For now just pull the first one from the list (next return a metadata that is the intersction of everything in this list */
 		requiredMetadata := resourceAction.RequiredMetadata()
 		if len(requiredMetadata) > 0 {
-			_, metadataBytes := s.Dao.LoadMetadataInTree(organizationID, requiredMetadata[0])
+			_, metadataBytes = s.Dao.LoadMetadataInTree(organizationID, requiredMetadata[0])
 			if len(metadataBytes) == 0 {
 				c.String(http.StatusBadRequest, "no metadata present")
 				return

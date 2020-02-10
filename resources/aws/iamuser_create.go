@@ -5,6 +5,12 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/aws/aws-sdk-go/service/iam"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+
 	"github.com/genesis32/complianceweb/resources"
 )
 
@@ -50,14 +56,27 @@ func (I IAMUserCreateResourcePostAction) Execute(w http.ResponseWriter, r *http.
 		result.AuditHumanReadable = fmt.Sprintf("error: failed to unmarshal credentials err: %v", err)
 		return result
 	}
-	/*
-		session.NewSession(&aws.Config{
-			Region:      aws.String("us-west-2"),
-			Credentials: credentials.NewStaticCredentials(awsCredentials.AccessKeyID, awsCredentials.AccessKeySecret, ""),
-		})
-	*/
 
-	result.AuditHumanReadable = fmt.Sprintf("creating user account: ")
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String("us-west-2"),
+		Credentials: credentials.NewStaticCredentials(resourceMetadata.AWSCredentials.AccessKeyID,
+			resourceMetadata.AWSCredentials.AccessKeySecret, ""),
+	})
+
+	// Create a IAM service client.
+	svc := iam.New(sess)
+
+	var username = "foobar0"
+	createUserResult, err := svc.CreateUser(&iam.CreateUserInput{
+		UserName: &username,
+	})
+
+	if err != nil {
+		result.AuditHumanReadable = fmt.Sprintf("error creating user account: ")
+		return result
+	}
+
+	result.AuditHumanReadable = fmt.Sprintf("created user account: %+v", createUserResult)
 	return result
 }
 
