@@ -231,6 +231,10 @@ func (s *Server) Initialize() *gin.Engine {
 
 	s.router.LoadHTMLGlob("templates/html/*.tmpl")
 
+	s.router.GET("/", func(c *gin.Context) {
+		c.Redirect(301, "/webapp/")
+	})
+
 	system := s.router.Group("/system")
 	{
 		system.POST("/bootstrap", s.registerWebApp(BootstrapApiPostHandler))
@@ -280,10 +284,6 @@ func (s *Server) Initialize() *gin.Engine {
 				s.registerResourceApi(theResource, theResource.Execute))
 		}
 	}
-
-	s.router.GET("/", func(c *gin.Context) {
-		c.Redirect(301, "/webapp/")
-	})
 
 	return s.router
 }
