@@ -1,2 +1,0 @@
-#!/bin/bash
-docker run -d --name enterpriseportal2-postgres -e POSTGRES_PASSWORD=secret -e POSTGRES_USER=enterpriseportal2 postgres

@@ -1,6 +1,9 @@
 FROM alpine
-RUN mkdir -p /templates/html/
-COPY templates/html/* /templates/html
+RUN mkdir -p /templates/html/ /static/images /static/js /static/css
+COPY templates/html/* /templates/html/
+COPY static/css/* /static/css/
+COPY static/js/* /static/js/
+COPY static/images/* /static/images/
 ADD enterpriseportal2 /
 ENV PORT 8080
 ENV ENV prod

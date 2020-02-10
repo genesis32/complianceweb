@@ -2,7 +2,6 @@
 # Implement ServiceAccount key delete for GCP
 # Way to update role for GCP service account
 # Add another resource type (perhaps aws service account)?
-# App deployable in Docker
 # See if we can get implicit openid grant working for auth0 and maybe okta?
 # Make sure our audit events log json
 # Database encryption of sensitive fields (cookies, gcp credentials, etc)
@@ -17,3 +16,4 @@ DONE
 - Looks interesting: https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts
 - Remove front-end cruft from the old version.
 - A README
+- Deployable in Docker
