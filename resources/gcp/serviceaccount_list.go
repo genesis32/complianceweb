@@ -29,10 +29,14 @@ func (g ServiceAccountResourceListGetAction) PermissionName() string {
 	return "gcp.serviceaccount.read.execute"
 }
 
+func (g ServiceAccountResourceListGetAction) RequiredMetadata() []string {
+	return []string{"gcpCredentials"}
+}
+
 func (g ServiceAccountResourceListGetAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 	result := resources.NewOperationResult()
 
-	mapAppParameters(params)
+	resources.MapAppParameters(params)
 
 	return result
 }

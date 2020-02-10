@@ -10,10 +10,15 @@
 # Start planning what a front-end application may look like.
 # Generate invite code from cli
 # Most likely need to base64 encode gcpCredentials metadata
+# Configurable amount of time before invites are purged.
 
 DONE
 - Assign roles to gcp service account
 - Looks interesting: https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts
 - Remove front-end cruft from the old version.
 - A README
-- Deployable in Docker
+k Deployable in Docker
+
+BUGS
+# Nice error message when you've already registered an account. [right now it dies]
+2020/02/10 16:03:48 /Users/dmassey/go/src/github.com/genesis32/complianceweb/dao/dao.go:682: error loading user from invite code %v: %w5357732814678434347pq: duplicate key value violates unique constraint "organization_user_idp_credential_value_key"

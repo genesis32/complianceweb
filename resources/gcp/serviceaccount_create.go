@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/genesis32/complianceweb/dao"
+
 	"github.com/genesis32/complianceweb/resources"
 
 	"google.golang.org/api/googleapi"
@@ -39,6 +41,10 @@ func (g *ServiceAccountResourcePostAction) PermissionName() string {
 	return "gcp.serviceaccount.write.execute"
 }
 
+func (g *ServiceAccountResourcePostAction) RequiredMetadata() []string {
+	return []string{"gcpCredentials"}
+}
+
 func (g *ServiceAccountResourcePostAction) createServiceAccountRecord(emailAddress string, state ServiceAccountState) {
 	var err error
 	jsonBytes, err := json.Marshal(state)
@@ -66,7 +72,7 @@ func (g *ServiceAccountResourcePostAction) createServiceAccountRecord(emailAddre
 */
 func (g *ServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 
-	daoHandler, metadata, organizationID := mapAppParameters(params)
+	daoHandler, metadataBytes, organizationID := resources.MapAppParameters(params)
 
 	result := resources.NewOperationResult()
 
@@ -81,6 +87,11 @@ func (g *ServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *htt
 	// TODO: Check that this service account exists in the project.
 
 	a := &ServiceAccountResourcePostAction{db: daoHandler.GetRawDatabaseHandle()}
+
+	var metadata dao.OrganizationMetadata
+	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
+		log.Fatal(err)
+	}
 
 	if credentials, ok := metadata["gcpCredentials"]; ok {
 		ctx := context.Background()

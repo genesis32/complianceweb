@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/genesis32/complianceweb/resources"
-
-	"github.com/genesis32/complianceweb/dao"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -117,21 +114,4 @@ func createServiceAccountKey(ctx context.Context, jsonCredential []byte, service
 		return nil, fmt.Errorf("Projects.ServiceAccounts.Keys.Create: %v", err)
 	}
 	return key, nil
-}
-
-func mapAppParameters(params resources.OperationParameters) (dao.ResourceDaoHandler, dao.OrganizationMetadata, int64) {
-	daoHandler, ok := params["resourceDao"].(dao.ResourceDaoHandler)
-	if !ok {
-		log.Fatal("params['resourceDao'] not a ResourceDao type")
-	}
-
-	metadata, ok := params["organizationMetadata"].(dao.OrganizationMetadata)
-	if !ok {
-		log.Fatal("params['organizationMetadata'] not a ResourceDao type")
-	}
-	organizationID, ok := params["organizationID"].(int64)
-	if !ok {
-		log.Fatal("params['organizationID'] not an int64 type")
-	}
-	return daoHandler, metadata, organizationID
 }

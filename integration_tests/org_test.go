@@ -335,8 +335,8 @@ func testCreateGcpServiceAccountNoMetadata(baseServer *server.Server, server *ht
 		if err != nil {
 			t.Fatal(err)
 		}
-		if resp.StatusCode != http.StatusNotFound {
-			t.Fatalf("statuscode expected: StatusNotFound got: %d", resp.StatusCode)
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("statuscode expected: StatusBadRequest got: %d", resp.StatusCode)
 		}
 	}
 }

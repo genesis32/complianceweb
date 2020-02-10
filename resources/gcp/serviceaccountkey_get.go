@@ -21,6 +21,10 @@ type ServiceAccountResourceKeyGetAction struct {
 	db *sql.DB
 }
 
+func (g ServiceAccountResourceKeyGetAction) RequiredMetadata() []string {
+	return []string{"gcpCredentials"}
+}
+
 func (g ServiceAccountResourceKeyGetAction) Path() string {
 	return ""
 }
@@ -43,7 +47,7 @@ func (g ServiceAccountResourceKeyGetAction) PermissionName() string {
 
 func (g ServiceAccountResourceKeyGetAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 
-	daoHandler, _, _ := mapAppParameters(params)
+	daoHandler, _, _ := resources.MapAppParameters(params)
 
 	a := &ServiceAccountResourceKeyGetAction{db: daoHandler.GetRawDatabaseHandle()}
 

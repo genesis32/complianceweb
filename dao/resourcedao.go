@@ -27,25 +27,26 @@ func (d *ResourceDao) GetRawDatabaseHandle() (DB *sql.DB) {
 	return d.Db
 }
 
+// TODO: For now this is the same as the one in DAO it should switch to be more configurable
 func (d *ResourceDao) Open() {
 	var err error
 
 	var dbConnectionString string
 	if os.Getenv("ENV") == "prod" {
-		dbConnectionString = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname sslmode=disable",
+		dbConnectionString = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 			os.Getenv("ENTERPRISEPORTAL2_POSTGRES_PORT_5432_TCP_ADDR"),
 			os.Getenv("ENTERPRISEPORTAL2_POSTGRES_PORT_5432_TCP_PORT"),
-			os.Getenv("ENTERPRISEPORTAL2_POSTGRES_ENV_POSTGRES_USER"),
-			os.Getenv("ENTERPRISEPORTAL2_POSTGRES_ENV_POSTGRES_PASSWORD"))
+			os.Getenv("ENTERPRISEPORTAL2_POSTGRES_USER"),
+			os.Getenv("ENTERPRISEPORTAL2_POSTGRES_PASSWORD"),
+			os.Getenv("ENTERPRISEPORTAL2_POSTGRES_DBNAME"))
 	} else {
 		dbConnectionString = os.Getenv("PGSQL_CONNECTION_STRING")
-	}
-	if len(dbConnectionString) == 0 {
-		panic("PGSQL_CONNECTION_STRING undefined")
+		if len(dbConnectionString) == 0 {
+			log.Fatal("PGSQL_CONNECTION_STRING undefined")
+		}
 	}
 	d.Db, err = sql.Open("postgres", dbConnectionString)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 }

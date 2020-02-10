@@ -1,7 +1,10 @@
 package resources
 
 import (
+	"log"
 	"net/http"
+
+	"github.com/genesis32/complianceweb/dao"
 )
 
 type OperationParameters map[string]interface{}
@@ -19,6 +22,7 @@ type OrganizationResourceAction interface {
 	PermissionName() string
 	Execute(w http.ResponseWriter, r *http.Request, params OperationParameters) *OperationResult
 	Path() string
+	RequiredMetadata() []string
 }
 
 func NewOperationResult() *OperationResult {
@@ -33,4 +37,21 @@ func FindResourceActions(internalKey string, loadedResources []OrganizationResou
 		}
 	}
 	return ret
+}
+
+func MapAppParameters(params OperationParameters) (dao.ResourceDaoHandler, []byte, int64) {
+	daoHandler, ok := params["resourceDao"].(dao.ResourceDaoHandler)
+	if !ok {
+		log.Fatal("params['resourceDao'] not a ResourceDao type")
+	}
+
+	metadata, ok := params["organizationMetadata"].([]byte)
+	if !ok {
+		log.Fatal("params['organizationMetadata'] not a ResourceDao type")
+	}
+	organizationID, ok := params["organizationID"].(int64)
+	if !ok {
+		log.Fatal("params['organizationID'] not an int64 type")
+	}
+	return daoHandler, metadata, organizationID
 }

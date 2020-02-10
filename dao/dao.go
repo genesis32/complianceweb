@@ -66,7 +66,7 @@ type DaoHandler interface {
 	Close() error
 	TrySelect()
 
-	LoadMetadataInTree(organizationId int64, key string) (int64, OrganizationMetadata)
+	LoadMetadataInTree(organizationId int64, key string) (int64, []byte)
 	LoadOrganizationMetadata(organizationID int64) OrganizationMetadata
 	UpdateOrganizationMetadata(organizationID int64, metadata OrganizationMetadata)
 
@@ -436,7 +436,7 @@ func (d *Dao) CanUserViewOrg(userID, organizationID int64) bool {
 
 	return count > 0
 }
-func (d *Dao) LoadMetadataInTree(organizationId int64, key string) (int64, OrganizationMetadata) {
+func (d *Dao) LoadMetadataInTree(organizationId int64, key string) (int64, []byte) {
 	// find my first parent that has a valid service account (will always terminate at the root)
 	sqlStatement := `
 SELECT
@@ -458,10 +458,10 @@ ORDER BY ordernum DESC LIMIT 1;
 	row := d.Db.QueryRow(sqlStatement, organizationId, key)
 
 	var organizationID int64
-	var organizationMetadata OrganizationMetadata
+	var organizationMetadata []byte
 	err := row.Scan(&organizationID, &organizationMetadata)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, make(OrganizationMetadata)
+		return 0, []byte{}
 	}
 
 	if err != nil {

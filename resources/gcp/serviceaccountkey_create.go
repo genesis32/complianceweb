@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+
+	"github.com/genesis32/complianceweb/dao"
 
 	"github.com/genesis32/complianceweb/resources"
 )
@@ -20,6 +23,10 @@ type ServiceAccountKeyCreateResponse struct {
 
 type ServiceAccountResourceKeyPostAction struct {
 	db *sql.DB
+}
+
+func (g *ServiceAccountResourceKeyPostAction) RequiredMetadata() []string {
+	return []string{"gcpCredentials"}
 }
 
 func (g *ServiceAccountResourceKeyPostAction) Path() string {
@@ -43,7 +50,7 @@ func (g ServiceAccountResourceKeyPostAction) PermissionName() string {
 }
 
 func (g ServiceAccountResourceKeyPostAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
-	daoHandler, metadata, _ := mapAppParameters(params)
+	daoHandler, metadataBytes, _ := resources.MapAppParameters(params)
 
 	a := &ServiceAccountResourcePostAction{db: daoHandler.GetRawDatabaseHandle()}
 	result := resources.NewOperationResult()
@@ -54,6 +61,11 @@ func (g ServiceAccountResourceKeyPostAction) Execute(w http.ResponseWriter, r *h
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		result.AuditHumanReadable = fmt.Sprintf("error: failed to unmarshal request err: %v", err)
 		return result
+	}
+
+	var metadata dao.OrganizationMetadata
+	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
+		log.Fatal(err)
 	}
 
 	if credentials, ok := metadata["gcpCredentials"]; ok {
