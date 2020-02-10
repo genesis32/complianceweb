@@ -17,9 +17,9 @@ inside these trees they can put users, resources, and metadata.
 
 Preload the database with data:
 
-    psql < schema/schema.sql
-    psql < schema/seed.sql
-    psql < schema/resource_schema.sql
+    psql < schema/00schema.sql
+    psql < schema/01seed.sql
+    psql < schema/02resource_schema.sql
 
 To download dependencies and build the executable:
 
@@ -32,6 +32,12 @@ To run the tests and make sure everything is sane:
 Start the app:
 
     go build && dotenv test.env ./complianceweb
+
+Create a System Admin Account
+
+```shell script
+curl -X POST "http://localhost:3000/system/bootstrap" -H "Content-Type: application/json" --data '{"SystemAdminName":"sysadmin0"}'
+```
     
 Visit [the login page](http://localhost:3000/webapp), click LogIn,
 and ensure you get back an auth0 jwt at the end of the flow. You can use this jwt
