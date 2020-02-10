@@ -46,7 +46,7 @@ func ParseTestJwt(jwtBase64 string, key []byte) OpenIDClaims {
 	token, err := jwt.Parse(jwtBase64, func(token *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 
 		return key, nil

@@ -12,6 +12,9 @@
 # Most likely need to base64 encode gcpCredentials metadata
 # Configurable amount of time before invites are purged.
 # Remove ability for Organizational Admin to modify his own roles (except when maybe under bootstrap mode?)
+# Maybe we should expose the core primitives of the services for all the responses.
+# Would be kind of cool if you could put together some data in this app and then output it to ladon policies:
+  https://github.com/ory/ladon
 
 DONE
 - Assign roles to gcp service account

@@ -13,14 +13,6 @@ import (
 	"github.com/genesis32/complianceweb/resources"
 )
 
-type ServiceAccountKeyCreateRequest struct {
-	GcpEmailIdentifier string
-}
-
-type ServiceAccountKeyCreateResponse struct {
-	UniqueIdentifier string
-}
-
 type ServiceAccountResourceKeyPostAction struct {
 	db *sql.DB
 }

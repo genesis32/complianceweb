@@ -9,13 +9,7 @@ import (
 	"net/http"
 
 	"github.com/genesis32/complianceweb/resources"
-
-	"google.golang.org/api/iam/v1"
 )
-
-type ServiceAccountKeyGetResponse struct {
-	Key *iam.ServiceAccountKey
-}
 
 type ServiceAccountResourceKeyGetAction struct {
 	db *sql.DB

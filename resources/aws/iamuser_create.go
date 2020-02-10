@@ -5,22 +5,14 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/aws/aws-sdk-go/service/iam"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/iam"
 
 	"github.com/genesis32/complianceweb/resources"
+	"gopkg.in/validator.v2"
 )
-
-type resourceMetadata struct {
-	AWSCredentials awsCredentials
-}
-type awsCredentials struct {
-	AccessKeyID     string
-	AccessKeySecret string
-}
 
 type IAMUserCreateResourcePostAction struct {
 }
@@ -50,6 +42,19 @@ func (I IAMUserCreateResourcePostAction) Execute(w http.ResponseWriter, r *http.
 
 	_, metadata, _ := resources.MapAppParameters(params)
 
+	var req IAMUserCreateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		result.AuditHumanReadable = fmt.Sprintf("error: failed to unmarshal request err: %v", err)
+		return result
+	}
+
+	if errs := validator.Validate(req); errs != nil {
+		http.Error(w, errs.Error(), http.StatusBadRequest)
+		result.AuditHumanReadable = fmt.Sprintf("error: failed to validate request err: %v", errs)
+		return result
+	}
+
 	var resourceMetadata resourceMetadata
 	if err := json.Unmarshal(metadata, &resourceMetadata); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -66,9 +71,8 @@ func (I IAMUserCreateResourcePostAction) Execute(w http.ResponseWriter, r *http.
 	// Create a IAM service client.
 	svc := iam.New(sess)
 
-	var username = "foobar0"
 	createUserResult, err := svc.CreateUser(&iam.CreateUserInput{
-		UserName: &username,
+		UserName: &req.UserName,
 	})
 
 	if err != nil {
@@ -76,7 +80,15 @@ func (I IAMUserCreateResourcePostAction) Execute(w http.ResponseWriter, r *http.
 		return result
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if errs := json.NewEncoder(w).Encode(&createUserResult); errs != nil {
+		result.AuditHumanReadable = fmt.Sprintf("error encoding response: %s", errs.Error())
+		return result
+	}
+
 	result.AuditHumanReadable = fmt.Sprintf("created user account: %+v", createUserResult)
+
 	return result
 }
 

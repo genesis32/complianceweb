@@ -17,16 +17,6 @@ import (
 	"github.com/genesis32/complianceweb/utils"
 )
 
-type ServiceAccountCreateRequest struct {
-	UniqueIdentifier string
-	ProjectID        string
-	Roles            []string
-}
-
-type ServiceAccountCreateResponse struct {
-	UniqueIdentifier string
-}
-
 type ServiceAccountResourcePostAction struct{ db *sql.DB }
 
 func (g *ServiceAccountResourcePostAction) Path() string {

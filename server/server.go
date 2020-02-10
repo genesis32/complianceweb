@@ -102,7 +102,7 @@ func NewServer() *Server {
 	callbackUrl := fmt.Sprintf("%s/webapp/callback", config.SystemBaseUrl)
 
 	var authenticator auth.Authenticator
-	if v, ok := os.LookupEnv("ENV"); ok && v == "dev" {
+	if v, ok := os.LookupEnv("ENV"); ok && v == "test" {
 		authenticator = auth.NewTestAuthenticator()
 	} else {
 		authenticator = auth.NewAuth0Authenticator(callbackUrl, config.OIDCIssuer, config.Auth0ClientID, config.Auth0ClientSecret)
