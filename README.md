@@ -49,7 +49,7 @@ Run the database:
     
 Run the app:
 
-    docker run --link enterpriseportal2-postgres -p 8080:8080 hilobit:enterpriseportal2
+    docker run --link enterpriseportal2-postgres -p 3000:8080 hilobit:enterpriseportal2
 
 ## Resource Types
 
