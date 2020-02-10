@@ -37,6 +37,20 @@ Visit [the login page](http://localhost:3000/webapp), click LogIn,
 and ensure you get back an auth0 jwt at the end of the flow. You can use this jwt
 to make API calls against the services.
 
+### Docker Notes
+
+make all:
+
+    make app && make database
+
+Run the database:
+
+    docker run --rm --name enterpriseportal2-postgres -p 9876:5432 hilobit:enterpriseportal2-db
+    
+Run the app:
+
+    docker run --link enterpriseportal2-postgres -p 8080:8080 hilobit:enterpriseportal2
+
 ## Resource Types
 
 ### GCP
