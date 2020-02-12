@@ -31,10 +31,9 @@ func testBootstrap(baseServer *server.Server, server *httptest.Server) func(t *t
 	return func(t *testing.T) {
 		cl := server.Client()
 		req := createBaseRequest(t, server, fixedJwts[0], "POST", "/system/bootstrap")
-
-		jsonReq := make(map[string]interface{})
-		jsonReq["SystemAdminName"] = "SystemAdmin0"
-		addJsonBody(req, jsonReq)
+		addJsonBody(req, map[string]interface{}{
+			"SystemAdminName": "SystemAdmin0",
+		})
 
 		resp, err := cl.Do(req)
 		if err != nil {
@@ -59,9 +58,9 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 		// Create a base organization
 		{
 			req := createBaseRequest(t, server, systemAdminJwt, "POST", "/api/organizations")
-			jsonReq := make(map[string]interface{})
-			jsonReq["Name"] = "RootOrg1024"
-			addJsonBody(req, jsonReq)
+			addJsonBody(req, map[string]interface{}{
+				"Name": "RootOrg1024",
+			})
 
 			resp, err := cl.Do(req)
 			if err != nil {
@@ -78,9 +77,9 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 		// create a second organization tree
 		{
 			req := createBaseRequest(t, server, systemAdminJwt, "POST", "/api/organizations")
-			jsonReq := make(map[string]interface{})
-			jsonReq["Name"] = "RootOrg2048"
-			addJsonBody(req, jsonReq)
+			addJsonBody(req, map[string]interface{}{
+				"Name": "RootOrg2048",
+			})
 
 			resp, err := cl.Do(req)
 			if err != nil {
@@ -97,11 +96,11 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 		// Create the first admin user of Organization1024 - user0
 		{
 			req := createBaseRequest(t, server, systemAdminJwt, "POST", "/api/users")
-			jsonReq := make(map[string]interface{})
-			jsonReq["Name"] = "OrgAdmin0-" + rootOrganization0
-			jsonReq["ParentOrganizationID"] = rootOrganization0
-			jsonReq["RoleNames"] = []string{"Organization Admin"}
-			addJsonBody(req, jsonReq)
+			addJsonBody(req, map[string]interface{}{
+				"Name":                 "OrgAdmin0-" + rootOrganization0,
+				"ParentOrganizationID": rootOrganization0,
+				"RoleNames":            []string{"Organization Admin"},
+			})
 
 			resp, err := cl.Do(req)
 			if err != nil {
@@ -113,7 +112,9 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 			}
 
 			var jsonResp genericJson
-			json.NewDecoder(resp.Body).Decode(&jsonResp)
+			if errs := json.NewDecoder(resp.Body).Decode(&jsonResp); errs != nil {
+				t.Fatal(errs)
+			}
 			inviteCode := jsonResp["InviteCode"].(string)
 
 			orgAdminJwt = simulateLogin(baseServer.Dao, inviteCode)
@@ -122,10 +123,10 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 		// user0 create an organization in the other tree (should fail)
 		{
 			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/organizations")
-			jsonReq := make(map[string]interface{})
-			jsonReq["ParentOrganizationID"] = rootOrganization1
-			jsonReq["Name"] = "RootOrg2048-0"
-			addJsonBody(req, jsonReq)
+			addJsonBody(req, map[string]interface{}{
+				"ParentOrganizationID": rootOrganization1,
+				"Name":                 "RootOrg2048-0",
+			})
 
 			resp, err := cl.Do(req)
 			if err != nil {
@@ -139,10 +140,10 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 		// create an organization under the one the user is an admin for.
 		{
 			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/organizations")
-			jsonReq := make(map[string]interface{})
-			jsonReq["ParentOrganizationID"] = rootOrganization0
-			jsonReq["Name"] = "RootOrg1024-0"
-			addJsonBody(req, jsonReq)
+			addJsonBody(req, map[string]interface{}{
+				"ParentOrganizationID": rootOrganization0,
+				"Name":                 "RootOrg1024-0",
+			})
 
 			resp, err := cl.Do(req)
 			if err != nil {
@@ -159,11 +160,11 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 		// create a user with just a gcp admin role
 		{
 			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/users")
-			jsonReq := make(map[string]interface{})
-			jsonReq["Name"] = "GCPAdminUser0-" + subOrganizationID0
-			jsonReq["ParentOrganizationID"] = subOrganizationID0
-			jsonReq["RoleNames"] = []string{"Organization Admin"}
-			addJsonBody(req, jsonReq)
+			addJsonBody(req, map[string]interface{}{
+				"Name":                 "GCPAdminUser0-" + subOrganizationID0,
+				"ParentOrganizationID": subOrganizationID0,
+				"RoleNames":            []string{"Organization Admin"},
+			})
 
 			resp, err := cl.Do(req)
 			if err != nil {
@@ -173,7 +174,9 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 				t.Fatalf("statuscode expected: StatusCreated got: %d", resp.StatusCode)
 			}
 			var jsonResp genericJson
-			json.NewDecoder(resp.Body).Decode(&jsonResp)
+			if errs := json.NewDecoder(resp.Body).Decode(&jsonResp); errs != nil {
+				t.Fatal(errs)
+			}
 			inviteCode := jsonResp["InviteCode"].(string)
 
 			subOrgAdminJwt = simulateLogin(baseServer.Dao, inviteCode)
@@ -182,11 +185,11 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 		// create a user with just a gcp admin role
 		{
 			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/users")
-			jsonReq := make(map[string]interface{})
-			jsonReq["Name"] = "GCPAdminUser0-" + subOrganizationID0
-			jsonReq["ParentOrganizationID"] = subOrganizationID0
-			jsonReq["RoleNames"] = []string{"GCP Administrator"}
-			addJsonBody(req, jsonReq)
+			addJsonBody(req, map[string]interface{}{
+				"Name":                 "GCPAdminUser0-" + subOrganizationID0,
+				"ParentOrganizationID": subOrganizationID0,
+				"RoleNames":            []string{"GCP Administrator"},
+			})
 
 			resp, err := cl.Do(req)
 			if err != nil {
@@ -210,11 +213,11 @@ func testNoUserCreateRole(baseServer *server.Server, server *httptest.Server) fu
 	return func(t *testing.T) {
 		cl := server.Client()
 		req := createBaseRequest(t, server, gcpAdminUser0Jwt, "POST", "/api/users")
-		jsonReq := make(map[string]interface{})
-		jsonReq["Name"] = "TestUser1-" + rootOrganization0
-		jsonReq["ParentOrganizationID"] = rootOrganization0
-		jsonReq["RoleNames"] = []string{"GCP Administrator"}
-		addJsonBody(req, jsonReq)
+		addJsonBody(req, map[string]interface{}{
+			"Name":                 "TestUser1-" + rootOrganization0,
+			"ParentOrganizationID": rootOrganization0,
+			"RoleNames":            []string{"GCP Administrator"},
+		})
 
 		resp, err := cl.Do(req)
 		if err != nil {
@@ -234,11 +237,11 @@ func testCreateInvalidRole(baseServer *server.Server, server *httptest.Server) f
 
 		// Create a base organization
 		req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/users")
-		jsonReq := make(map[string]interface{})
-		jsonReq["Name"] = "TestUser1-" + rootOrganization0
-		jsonReq["ParentOrganizationID"] = rootOrganization0
-		jsonReq["RoleNames"] = []string{"GCP Admin"}
-		addJsonBody(req, jsonReq)
+		addJsonBody(req, map[string]interface{}{
+			"Name":                 "TestUser1-" + rootOrganization0,
+			"ParentOrganizationID": rootOrganization0,
+			"RoleNames":            []string{"GCP Admin"},
+		})
 
 		resp, err := cl.Do(req)
 		if err != nil {
@@ -257,11 +260,11 @@ func testSubOrgAdminCreateUserInParent(baseServer *server.Server, server *httpte
 
 		// Create a base organization
 		req := createBaseRequest(t, server, subOrgAdminJwt, "POST", "/api/users")
-		jsonReq := make(map[string]interface{})
-		jsonReq["Name"] = "TestUser1-" + rootOrganization0
-		jsonReq["ParentOrganizationID"] = rootOrganization0
-		jsonReq["RoleNames"] = []string{"GCP Administrator"}
-		addJsonBody(req, jsonReq)
+		addJsonBody(req, map[string]interface{}{
+			"Name":                 "TestUser1-" + rootOrganization0,
+			"ParentOrganizationID": rootOrganization0,
+			"RoleNames":            []string{"GCP Administrator"},
+		})
 
 		resp, err := cl.Do(req)
 		if err != nil {
@@ -280,10 +283,10 @@ func testSubOrgAdminCreateOrgInParent(baseServer *server.Server, server *httptes
 
 		// Create a base organization
 		req := createBaseRequest(t, server, subOrgAdminJwt, "POST", "/api/organizations")
-		jsonReq := make(map[string]interface{})
-		jsonReq["Name"] = "SubOrg1024-" + rootOrganization0
-		jsonReq["ParentOrganizationID"] = rootOrganization0
-		addJsonBody(req, jsonReq)
+		addJsonBody(req, map[string]interface{}{
+			"Name":                 "SubOrg1024-" + rootOrganization0,
+			"ParentOrganizationID": rootOrganization0,
+		})
 
 		resp, err := cl.Do(req)
 		if err != nil {
@@ -300,16 +303,15 @@ func testCreateGcpServiceAccount(baseServer *server.Server, s *httptest.Server) 
 	return func(t *testing.T) {
 		cl := s.Client()
 
-		data := &server.OrganizationMetadataUpdateRequest{Metadata: make(map[string]interface{})}
-		data.Metadata["gcpCredentials"] = "{}"
+		data := &server.OrganizationMetadataUpdateRequest{Metadata: map[string]interface{}{"gcpCredentials": "{}"}}
 		updateMetadata(t, cl, s, subOrganizationID0, data)
 
 		// Create a base organization
 		path := fmt.Sprintf("/api/resources/%s/gcp.serviceaccount", subOrganizationID0)
 		req := createBaseRequest(t, s, gcpAdminUser0Jwt, "POST", path)
-		jsonReq := make(map[string]interface{})
-		jsonReq["Name"] = "serviceAccount-" + subOrganizationID0
-		addJsonBody(req, jsonReq)
+		addJsonBody(req, map[string]interface{}{
+			"Name": "serviceAccount-" + subOrganizationID0,
+		})
 
 		resp, err := cl.Do(req)
 		if err != nil {
@@ -328,9 +330,9 @@ func testCreateGcpServiceAccountNoMetadata(baseServer *server.Server, server *ht
 		// Create a base organization
 		path := fmt.Sprintf("/api/resources/%s/gcp.serviceaccount", subOrganizationID0)
 		req := createBaseRequest(t, server, gcpAdminUser0Jwt, "POST", path)
-		jsonReq := make(map[string]interface{})
-		jsonReq["Name"] = "serviceAccount-" + subOrganizationID0
-		addJsonBody(req, jsonReq)
+		addJsonBody(req, map[string]interface{}{
+			"Name": "serviceAccount-" + subOrganizationID0,
+		})
 		resp, err := cl.Do(req)
 		if err != nil {
 			t.Fatal(err)
@@ -348,9 +350,9 @@ func testNotAuthorizedCreateGcpServiceAccount(baseServer *server.Server, server 
 		// Create a base organization
 		path := fmt.Sprintf("/api/resources/%s/gcp.serviceaccount", subOrganizationID0)
 		req := createBaseRequest(t, server, orgAdminJwt, "POST", path)
-		jsonReq := make(map[string]interface{})
-		jsonReq["Name"] = "serviceAccount0-" + subOrganizationID0
-		addJsonBody(req, jsonReq)
+		addJsonBody(req, map[string]interface{}{
+			"Name": "serviceAccount0-" + subOrganizationID0,
+		})
 
 		resp, err := cl.Do(req)
 		if err != nil {
@@ -381,8 +383,7 @@ func testUpdateOrganizationMetadata(baseServer *server.Server, s *httptest.Serve
 	return func(t *testing.T) {
 		cl := s.Client()
 
-		data := &server.OrganizationMetadataUpdateRequest{Metadata: make(map[string]interface{})}
-		data.Metadata["foo"] = "bar"
+		data := &server.OrganizationMetadataUpdateRequest{Metadata: map[string]interface{}{"foo": "bar"}}
 		updateMetadata(t, cl, s, subOrganizationID0, data)
 
 		path := fmt.Sprintf("/api/organizations/%s/metadata", subOrganizationID0)
@@ -412,23 +413,25 @@ func TestBootstrapAndOrganization(t *testing.T) {
 		}
 		fixedJwts = append(fixedJwts, strings.TrimSpace(string(uj)))
 	}
-	os.Chdir("../")
+	if errs := os.Chdir("../"); errs != nil {
+		t.Fatal(errs)
+	}
 	baseServer := server.NewServer()
 	defer baseServer.Shutdown()
 	engine := baseServer.Initialize()
 
-	server := httptest.NewServer(engine)
-	defer server.Close()
-	t.Run("testBootstrap", testBootstrap(baseServer, server))
-	t.Run("testCreateRootOrg", testCreateRootOrg(baseServer, server))
-	t.Run("testNoUserCreateRole", testNoUserCreateRole(baseServer, server))
-	t.Run("testCreateInvalidRole", testCreateInvalidRole(baseServer, server))
-	t.Run("testSubOrgAdminCreateUserInParent", testSubOrgAdminCreateUserInParent(baseServer, server))
-	t.Run("testSubOrgAdminCreateOrgInParent", testSubOrgAdminCreateOrgInParent(baseServer, server))
-	t.Run("testNotAUthorizedCreateGcpServiceAccount", testNotAuthorizedCreateGcpServiceAccount(baseServer, server))
-	t.Run("update organization metadata", testUpdateOrganizationMetadata(baseServer, server))
+	httpServer := httptest.NewServer(engine)
+	defer httpServer.Close()
+	t.Run("testBootstrap", testBootstrap(baseServer, httpServer))
+	t.Run("testCreateRootOrg", testCreateRootOrg(baseServer, httpServer))
+	t.Run("testNoUserCreateRole", testNoUserCreateRole(baseServer, httpServer))
+	t.Run("testCreateInvalidRole", testCreateInvalidRole(baseServer, httpServer))
+	t.Run("testSubOrgAdminCreateUserInParent", testSubOrgAdminCreateUserInParent(baseServer, httpServer))
+	t.Run("testSubOrgAdminCreateOrgInParent", testSubOrgAdminCreateOrgInParent(baseServer, httpServer))
+	t.Run("testNotAuthorizedCreateGcpServiceAccount", testNotAuthorizedCreateGcpServiceAccount(baseServer, httpServer))
+	t.Run("update organization metadata", testUpdateOrganizationMetadata(baseServer, httpServer))
 
-	t.Run("org admin cannot create gcp service account", testNotAuthorizedCreateGcpServiceAccount(baseServer, server))
-	t.Run("gcp service account no metadata", testCreateGcpServiceAccountNoMetadata(baseServer, server))
-	//	t.Run("gcp service account w/ metadata", testCreateGcpServiceAccount(baseServer, server))
+	t.Run("org admin cannot create gcp service account", testNotAuthorizedCreateGcpServiceAccount(baseServer, httpServer))
+	t.Run("gcp service account no metadata", testCreateGcpServiceAccountNoMetadata(baseServer, httpServer))
+	//	t.Run("gcp service account w/ metadata", testCreateGcpServiceAccount(baseServer, httpServer))
 }
