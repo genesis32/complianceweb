@@ -27,7 +27,7 @@ To download dependencies and build the executable:
 
 To run the tests and make sure everything is sane:
 
-    cd integration_tests && GIN_RELEASE=prod dotenv ../dev.env go test
+    cd integration_tests && GIN_MODE=release dotenv ../test.env go test  -v
 
 Start the app:
 

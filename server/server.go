@@ -234,7 +234,12 @@ func (s *Server) Initialize() *gin.Engine {
 
 	s.registeredResources = s.Dao.LoadEnabledResources()
 
-	s.router = gin.Default()
+	if k, exists := os.LookupEnv("ENV"); exists && k == "test" {
+		s.router = gin.New()
+	} else {
+		s.router = gin.Default()
+	}
+
 	s.router.MaxMultipartMemory = 8 << 20 // 8 MiB
 	s.router.Static("/static", "./static")
 	s.router.StaticFile("/favicon.ico", "./static/favicon.ico")
