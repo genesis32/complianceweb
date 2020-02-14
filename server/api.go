@@ -306,6 +306,10 @@ func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHand
 	return nil
 }
 
+func UserApiDeleteHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+	return nil
+}
+
 func UserApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	subject, _ := c.Get("authenticated_user_profile")
 	t := handler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
