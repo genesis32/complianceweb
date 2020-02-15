@@ -38,6 +38,7 @@ type AddUserToOrganizationRequest struct {
 
 type AddUserToOrganizationResponse struct {
 	InviteCode int64 `json:",string,omitempty"`
+	UserID     int64 `json:",string,omitempty"`
 	Href       string
 }
 

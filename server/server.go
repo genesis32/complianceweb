@@ -121,9 +121,18 @@ type webAppFunc func(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin
 type resourceApiFunc func(w http.ResponseWriter, r *http.Request, parameters resources.OperationParameters) *resources.OperationResult
 
 func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
+	return s.registerWebAppA(true, fn)
+}
+
+func (s *Server) registerWebAppA(authenticationRequired bool, fn webAppFunc) func(c *gin.Context) {
 	return func(c *gin.Context) {
-		var userId int64
 		subject, ok := c.Get("authenticated_user_profile")
+		if !ok && authenticationRequired {
+			c.String(http.StatusUnauthorized, "TODO")
+			return
+		}
+
+		var userId int64
 		if ok {
 			// TODO: Move the userinfo parameter to the method it's calling
 			userInfo := s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
@@ -252,7 +261,7 @@ func (s *Server) Initialize() *gin.Engine {
 
 	system := s.router.Group("/system")
 	{
-		system.POST("/bootstrap", s.registerWebApp(BootstrapApiPostHandler))
+		system.POST("/bootstrap", s.registerWebAppA(false, BootstrapApiPostHandler))
 	}
 
 	webapp := s.router.Group("/webapp")

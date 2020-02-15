@@ -9,11 +9,18 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/genesis32/complianceweb/dao"
 	"github.com/genesis32/complianceweb/utils"
 )
+
+func init() {
+	if errs := os.Chdir("../"); errs != nil {
+		panic(errs)
+	}
+}
 
 func simulateLogin(handler dao.DaoHandler, inviteCode string) string {
 	jwt := utils.GenerateTestJwt(fmt.Sprintf("oauth|%d", utils.GetNextUniqueId()))

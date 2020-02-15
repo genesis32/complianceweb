@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -16,10 +15,10 @@ import (
 type genericJson map[string]interface{}
 
 var (
-	initialUserJwtFiles                  = []string{"data/105843250540508297717.txt"}
+	initialUserJwtFiles                  = []string{"integration_tests/data/105843250540508297717.txt"}
 	fixedJwts                            []string
 	systemAdminJwt                       string
-	orgAdminJwt                          string
+	rootOrgAdminJwt                      string
 	subOrgAdminJwt                       string
 	gcpAdminUser0Jwt                     string
 	rootOrganization0                    string
@@ -123,12 +122,12 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 			}
 			inviteCode := jsonResp["InviteCode"].(string)
 
-			orgAdminJwt = simulateLogin(baseServer.Dao, inviteCode)
+			rootOrgAdminJwt = simulateLogin(baseServer.Dao, inviteCode)
 		}
 
-		// user0 create an organization in the other tree (should fail)
+		// root org admin0 create an organization in the other tree (should fail)
 		{
-			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/organizations")
+			req := createBaseRequest(t, server, rootOrgAdminJwt, "POST", "/api/organizations")
 			addJsonBody(req, map[string]interface{}{
 				"ParentOrganizationID": rootOrganization1,
 				"Name":                 "RootOrg2048-0",
@@ -145,7 +144,7 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 
 		// create an organization under the one the user is an admin for.
 		{
-			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/organizations")
+			req := createBaseRequest(t, server, rootOrgAdminJwt, "POST", "/api/organizations")
 			addJsonBody(req, map[string]interface{}{
 				"ParentOrganizationID": rootOrganization0,
 				"Name":                 "RootOrg1024-0",
@@ -167,7 +166,7 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 
 		// create a user with an organization admin role
 		{
-			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/users")
+			req := createBaseRequest(t, server, rootOrgAdminJwt, "POST", "/api/users")
 			addJsonBody(req, map[string]interface{}{
 				"Name":                 "GCPAdminUser0-" + subOrganization0ForRootOrganization0,
 				"ParentOrganizationID": subOrganization0ForRootOrganization0,
@@ -192,7 +191,7 @@ func testCreateRootOrg(baseServer *server.Server, server *httptest.Server) func(
 
 		// create a user with just a gcp admin role
 		{
-			req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/users")
+			req := createBaseRequest(t, server, rootOrgAdminJwt, "POST", "/api/users")
 			addJsonBody(req, map[string]interface{}{
 				"Name":                 "GCPAdminUser0-" + subOrganization0ForRootOrganization0,
 				"ParentOrganizationID": subOrganization0ForRootOrganization0,
@@ -246,7 +245,7 @@ func testCreateInvalidRole(baseServer *server.Server, server *httptest.Server) f
 		cl := server.Client()
 
 		// Create a base organization
-		req := createBaseRequest(t, server, orgAdminJwt, "POST", "/api/users")
+		req := createBaseRequest(t, server, rootOrgAdminJwt, "POST", "/api/users")
 		addJsonBody(req, map[string]interface{}{
 			"Name":                 "TestUser1-" + rootOrganization0,
 			"ParentOrganizationID": rootOrganization0,
@@ -334,7 +333,7 @@ func testNotAuthorizedCreateGcpServiceAccount(baseServer *server.Server, server 
 		cl := server.Client()
 		// Create a base organization
 		path := fmt.Sprintf("/api/resources/%s/gcp.serviceaccount", subOrganization0ForRootOrganization0)
-		req := createBaseRequest(t, server, orgAdminJwt, "POST", path)
+		req := createBaseRequest(t, server, rootOrgAdminJwt, "POST", path)
 		addJsonBody(req, map[string]interface{}{
 			"Name": "serviceAccount0-" + subOrganization0ForRootOrganization0,
 		})
@@ -351,8 +350,8 @@ func testNotAuthorizedCreateGcpServiceAccount(baseServer *server.Server, server 
 
 func updateMetadata(t *testing.T, cl *http.Client, s *httptest.Server, org string, data *server.OrganizationMetadataUpdateRequest) {
 	path := fmt.Sprintf("/api/organizations/%s/metadata", org)
-	// TODO: Move orgAdminJwt out of this.
-	req := createBaseRequest(t, s, orgAdminJwt, "PUT", path)
+	// TODO: Move rootOrgAdminJwt out of this.
+	req := createBaseRequest(t, s, rootOrgAdminJwt, "PUT", path)
 	addJsonBody(req, data)
 
 	resp, err := cl.Do(req)
@@ -429,6 +428,72 @@ func testCreateGcpServiceAccount(baseServer *server.Server, s *httptest.Server) 
 	}
 }
 
+func testListOrganizationNoCredentials(baseServer *server.Server, s *httptest.Server) func(t *testing.T) {
+	return func(t *testing.T) {
+		cl := s.Client()
+
+		path := fmt.Sprintf("/api/organizations")
+		req := createBaseRequest(t, s, "", "GET", path)
+
+		resp, err := cl.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("statuscode expected: StatusUnauthorized got: %d", resp.StatusCode)
+		}
+	}
+}
+
+func testListOrganizationWithCredentials(baseServer *server.Server, s *httptest.Server) func(t *testing.T) {
+	return func(t *testing.T) {
+		{
+			cl := s.Client()
+
+			path := fmt.Sprintf("/api/organizations")
+			req := createBaseRequest(t, s, rootOrgAdminJwt, "GET", path)
+
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("statuscode expected: StatusOK got: %d", resp.StatusCode)
+			}
+		}
+		// TODO: Verify root and children and that other tree isn't in it
+		{
+			cl := s.Client()
+
+			path := fmt.Sprintf("/api/organizations")
+			req := createBaseRequest(t, s, subOrgAdminJwt, "GET", path)
+
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("statuscode expected: StatusOK got: %d", resp.StatusCode)
+			}
+		}
+		// TODO: Even GCP admin cant list orgs
+		{
+			cl := s.Client()
+
+			path := fmt.Sprintf("/api/organizations")
+			req := createBaseRequest(t, s, gcpAdminUser0Jwt, "GET", path)
+
+			resp, err := cl.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("statuscode expected: StatusOK got: %d", resp.StatusCode)
+			}
+		}
+	}
+}
+
 func TestBootstrapAndOrganization(t *testing.T) {
 	for _, fn := range initialUserJwtFiles {
 		uj, err := ioutil.ReadFile(fn)
@@ -436,9 +501,6 @@ func TestBootstrapAndOrganization(t *testing.T) {
 			t.Fatal(err)
 		}
 		fixedJwts = append(fixedJwts, strings.TrimSpace(string(uj)))
-	}
-	if errs := os.Chdir("../"); errs != nil {
-		t.Fatal(errs)
 	}
 	baseServer := server.NewServer()
 	defer baseServer.Shutdown()
@@ -457,5 +519,6 @@ func TestBootstrapAndOrganization(t *testing.T) {
 
 	t.Run("org admin cannot create gcp service account", testNotAuthorizedCreateGcpServiceAccount(baseServer, httpServer))
 	t.Run("gcp service account no metadata", testCreateGcpServiceAccountNoMetadata(baseServer, httpServer))
-	//	t.Run("gcp service account w/ metadata", testCreateGcpServiceAccount(baseServer, httpServer))
+	t.Run("unauthenticated caller calling authenticated api", testListOrganizationNoCredentials(baseServer, httpServer))
+	t.Run("list organizations", testListOrganizationWithCredentials(baseServer, httpServer))
 }

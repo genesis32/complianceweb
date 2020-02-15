@@ -205,7 +205,7 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 	daoHandler.SetRolesToUser(addRequest.ParentOrganizationID, userId, addRequest.RoleNames)
 
 	href := createInviteLink("", inviteCode, daoHandler)
-	r := &AddUserToOrganizationResponse{InviteCode: inviteCode, Href: href}
+	r := &AddUserToOrganizationResponse{InviteCode: inviteCode, Href: href, UserID: userId}
 	c.JSON(http.StatusCreated, r)
 	return nil
 }
