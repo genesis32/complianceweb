@@ -286,7 +286,35 @@ func UserRoleApiPostHandler(t *dao.OrganizationUser, s *Server, store sessions.S
 }
 
 func UserApiDeleteHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
-	return nil
+	userIDStr := c.Param("userID")
+	userID, err := utils.StringToInt64(userIDStr)
+	if err != nil {
+		c.String(http.StatusBadRequest, "user invalid ID")
+		return nil
+	}
+
+	theUser := handler.LoadUserFromID(userID)
+	if theUser == nil {
+		c.String(http.StatusNotFound, "user not found")
+		return nil
+	}
+
+	for k, _ := range theUser.UserRoles {
+		if !handler.DoesUserHavePermission(t.ID, k, UserUpdatePermission) {
+			c.String(http.StatusUnauthorized, "not authorized to update user")
+			return nil
+		}
+	}
+
+	handler.UpdateUserState(theUser.ID, dao.UserDeactiveState)
+	result := &WebAppOperationResult{
+		AuditHumanReadable: fmt.Sprintf("Deactivated user id:%d name:%s", theUser.ID, theUser.DisplayName),
+	}
+
+	// TODO: Make a proper response object
+	c.String(200, "")
+
+	return result
 }
 
 func UserApiGetHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {

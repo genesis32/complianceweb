@@ -22,6 +22,7 @@ const (
 	TreeOpBootstrap         = 3
 	TreeOpUpdateRole        = 4
 	TreeOpListOrganizations = 5
+	TreeOpDeactivateUser    = 6
 )
 
 type treeOp struct {
@@ -160,6 +161,21 @@ func testRunner(opsToRun []treeOp, baseServer *server.Server, s *httptest.Server
 								opsToRun[i].ValidateFunc(t, &opsToRun[i])
 							}
 						}
+					}
+				}
+			case TreeOpDeactivateUser:
+				{
+					p := fmt.Sprintf("/api/users/%d", usernameToID[opsToRun[i].Name])
+					req := createBaseRequest(t, s, credentials[opsToRun[i].CallerCredentialJwt], "DELETE", p)
+					resp, err := cl.Do(req)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if resp.StatusCode != opsToRun[i].HttpExpectedStatus {
+						t.Fatalf("add user - statuscode expected: %d got: %d", opsToRun[i].HttpExpectedStatus, resp.StatusCode)
+					}
+					if opsToRun[i].HttpExpectedStatus >= 200 && opsToRun[i].HttpExpectedStatus < 300 {
+
 					}
 				}
 			}
@@ -309,6 +325,34 @@ var invalidLoginTest = append(baseTree, []treeOp{
 	},
 }...)
 
+var deactivateUserTest = append(baseTree, []treeOp{
+	{
+		CallerCredentialJwt: "RootOrg0Admin",
+		Op:                  TreeOpAddUser,
+		ParentOrgName:       "RootOrg0",
+		Name:                "RootOrg0User1",
+		SimulateLogin:       true,
+		Roles:               []string{"Organization Admin"},
+		HttpExpectedStatus:  http.StatusCreated,
+	},
+	{
+		CallerCredentialJwt: "RootOrg0User1",
+		Op:                  TreeOpListOrganizations,
+		HttpExpectedStatus:  http.StatusOK,
+	},
+	{
+		CallerCredentialJwt: "RootOrg0Admin",
+		Op:                  TreeOpDeactivateUser,
+		Name:                "RootOrg0User1",
+		HttpExpectedStatus:  http.StatusOK,
+	},
+	{
+		CallerCredentialJwt: "RootOrg0User1",
+		Op:                  TreeOpListOrganizations,
+		HttpExpectedStatus:  http.StatusForbidden,
+	},
+}...)
+
 func TestTree(t *testing.T) {
 	baseServer := server.NewServer()
 	defer baseServer.Shutdown()
@@ -322,4 +366,5 @@ func TestTree(t *testing.T) {
 	t.Run("invalidRoleTest : unauthorized creations : parent", testRunner(unauthorizedParentTest, baseServer, httpServer))
 	t.Run("list organizations", testRunner(listOrganizationsTest, baseServer, httpServer))
 	t.Run("invalid login", testRunner(invalidLoginTest, baseServer, httpServer))
+	t.Run("deactivate user", testRunner(deactivateUserTest, baseServer, httpServer))
 }

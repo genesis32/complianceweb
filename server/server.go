@@ -130,7 +130,7 @@ func (s *Server) registerWebAppA(authenticationRequired bool, fn webAppFunc) fun
 		if authenticationRequired {
 			subject, ok := c.Get("authenticated_user_profile")
 			if !ok {
-				c.String(http.StatusForbidden, "User does not exist")
+				c.String(http.StatusForbidden, "User credential not supplied.")
 				return
 			}
 

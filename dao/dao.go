@@ -80,6 +80,7 @@ type DaoHandler interface {
 	LoadUserFromInviteCode(inviteCode int64) *OrganizationUser
 	LoadUserFromCredential(credential string, state int) *OrganizationUser
 	LoadUserFromID(id int64) *OrganizationUser
+	UpdateUserState(id int64, state int)
 
 	InitUserFromInviteCode(inviteCode, idpAuthCredential string) bool
 	LogUserIn(idpAuthCredential string) (*OrganizationUser, error)
@@ -154,6 +155,17 @@ func (d *Dao) HasValidRoles(roles []string) bool {
 		log.Fatal(err)
 	}
 	return cnt == len(roles)
+}
+
+func (d *Dao) UpdateUserState(id int64, state int) {
+	sqlStatement := `
+		UPDATE organization_user SET current_state = $2 WHERE id = $1 
+`
+	_, err := d.Db.Exec(sqlStatement, id, state)
+
+	if err != nil {
+		log.Fatalf("error updating state of user %d to %d err: %v", id, state, err)
+	}
 }
 
 func (d *Dao) LoadUserFromID(id int64) *OrganizationUser {
