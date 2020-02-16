@@ -136,6 +136,10 @@ func (s *Server) registerWebAppA(authenticationRequired bool, fn webAppFunc) fun
 		if ok {
 			// TODO: Move the userinfo parameter to the method it's calling
 			userInfo := s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
+			if userInfo == nil {
+				c.String(http.StatusForbidden, "User does not exist")
+				return
+			}
 			userId = userInfo.ID
 		}
 
@@ -172,6 +176,10 @@ func (s *Server) registerResourceApi(resourceAction resources.OrganizationResour
 		}
 
 		userInfo := s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
+		if userInfo == nil {
+			c.String(http.StatusForbidden, "User does not exist")
+			return
+		}
 
 		hasPermission := s.Dao.DoesUserHavePermission(userInfo.ID, organizationID, resourceAction.PermissionName())
 

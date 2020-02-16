@@ -1,8 +1,10 @@
 package integration_tests
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -14,11 +16,12 @@ import (
 )
 
 const (
-	TreeOpAddUser    = 0
-	TreeOpAddOrg     = 1
-	TreeOpUserLogin  = 2
-	TreeOpBootstrap  = 3
-	TreeOpUpdateRole = 4
+	TreeOpAddUser           = 0
+	TreeOpAddOrg            = 1
+	TreeOpUserLogin         = 2
+	TreeOpBootstrap         = 3
+	TreeOpUpdateRole        = 4
+	TreeOpListOrganizations = 5
 )
 
 type treeOp struct {
@@ -27,8 +30,10 @@ type treeOp struct {
 	ParentOrgName       string
 	Name                string
 	Roles               []string
+	SimulateLogin       bool
 	HttpExpectedStatus  int
-	httpResponseData    genericJson
+	ResponseBody        string
+	ValidateFunc        func(t *testing.T, o *treeOp)
 }
 
 func testRunner(opsToRun []treeOp, baseServer *server.Server, s *httptest.Server) func(t *testing.T) {
@@ -124,7 +129,11 @@ func testRunner(opsToRun []treeOp, baseServer *server.Server, s *httptest.Server
 							t.Fatal(err)
 						} else {
 							usernameToID[opsToRun[i].Name] = v
-							credentials[opsToRun[i].Name] = simulateLogin(baseServer.Dao, inviteCode)
+							if opsToRun[i].SimulateLogin {
+								credentials[opsToRun[i].Name] = simulateLogin(baseServer.Dao, inviteCode)
+							} else {
+								credentials[opsToRun[i].Name] = generateTestJwt()
+							}
 						}
 					}
 				}
@@ -132,60 +141,33 @@ func testRunner(opsToRun []treeOp, baseServer *server.Server, s *httptest.Server
 				{
 
 				}
+			case TreeOpListOrganizations:
+				{
+					req := createBaseRequest(t, s, credentials[opsToRun[i].CallerCredentialJwt], "GET", "/api/organizations")
+					resp, err := cl.Do(req)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if resp.StatusCode != opsToRun[i].HttpExpectedStatus {
+						t.Fatalf("add user - statuscode expected: %d got: %d", opsToRun[i].HttpExpectedStatus, resp.StatusCode)
+					}
+					if opsToRun[i].HttpExpectedStatus >= 200 && opsToRun[i].HttpExpectedStatus < 300 {
+						if v, errs := ioutil.ReadAll(resp.Body); errs != nil {
+							t.Fatal(errs)
+						} else {
+							opsToRun[i].ResponseBody = string(v)
+							if opsToRun[i].ValidateFunc != nil {
+								opsToRun[i].ValidateFunc(t, &opsToRun[i])
+							}
+						}
+					}
+				}
 			}
 		}
 	}
 }
 
-var baseCreateTest = []treeOp{
-	{
-		CallerCredentialJwt: "",
-		Op:                  TreeOpBootstrap,
-		Name:                "SystemAdmin",
-		HttpExpectedStatus:  http.StatusOK,
-	},
-	{
-		CallerCredentialJwt: "SystemAdmin",
-		Op:                  TreeOpAddOrg,
-		ParentOrgName:       "",
-		Name:                "RootOrg",
-		HttpExpectedStatus:  http.StatusCreated,
-	},
-	{
-		CallerCredentialJwt: "SystemAdmin",
-		Op:                  TreeOpAddUser,
-		ParentOrgName:       "RootOrg",
-		Name:                "RootUser",
-		Roles:               []string{"Organization Admin"},
-		HttpExpectedStatus:  http.StatusCreated,
-	},
-}
-
-var test1 = []treeOp{
-	{
-		CallerCredentialJwt: "",
-		Op:                  TreeOpBootstrap,
-		Name:                "SystemAdmin",
-		HttpExpectedStatus:  http.StatusOK,
-	},
-	{
-		CallerCredentialJwt: "SystemAdmin",
-		Op:                  TreeOpAddOrg,
-		ParentOrgName:       "",
-		Name:                "RootOrg",
-		HttpExpectedStatus:  http.StatusCreated,
-	},
-	{
-		CallerCredentialJwt: "SystemAdmin",
-		Op:                  TreeOpAddUser,
-		ParentOrgName:       "RootOrg",
-		Name:                "RootUser",
-		Roles:               []string{"Org Admin"},
-		HttpExpectedStatus:  http.StatusBadRequest,
-	},
-}
-
-var test2 = []treeOp{
+var baseTree = []treeOp{
 	{
 		CallerCredentialJwt: "",
 		Op:                  TreeOpBootstrap,
@@ -201,17 +183,33 @@ var test2 = []treeOp{
 	},
 	{
 		CallerCredentialJwt: "SystemAdmin",
-		Op:                  TreeOpAddOrg,
-		ParentOrgName:       "",
-		Name:                "RootOrg1",
+		Op:                  TreeOpAddUser,
+		SimulateLogin:       true,
+		ParentOrgName:       "RootOrg0",
+		Name:                "RootOrg0Admin",
+		Roles:               []string{"Organization Admin"},
 		HttpExpectedStatus:  http.StatusCreated,
 	},
+}
+
+var invalidRoleTest = append(baseTree, []treeOp{
 	{
 		CallerCredentialJwt: "SystemAdmin",
 		Op:                  TreeOpAddUser,
 		ParentOrgName:       "RootOrg0",
-		Name:                "RootOrg0Admin",
-		Roles:               []string{"Organization Admin"},
+		SimulateLogin:       false,
+		Name:                "RootOrg0Admin1",
+		Roles:               []string{"Org Admin"},
+		HttpExpectedStatus:  http.StatusBadRequest,
+	},
+}...)
+
+var unauthorizedLateralRole = append(baseTree, []treeOp{
+	{
+		CallerCredentialJwt: "SystemAdmin",
+		Op:                  TreeOpAddOrg,
+		ParentOrgName:       "",
+		Name:                "RootOrg1",
 		HttpExpectedStatus:  http.StatusCreated,
 	},
 	{
@@ -225,34 +223,14 @@ var test2 = []treeOp{
 		CallerCredentialJwt: "RootOrg0Admin",
 		Op:                  TreeOpAddUser,
 		ParentOrgName:       "RootOrg1",
+		SimulateLogin:       true,
 		Name:                "RootOrg1Admin",
 		Roles:               []string{"Organization Admin"},
 		HttpExpectedStatus:  http.StatusUnauthorized,
 	},
-}
+}...)
 
-var test5 = []treeOp{
-	{
-		CallerCredentialJwt: "",
-		Op:                  TreeOpBootstrap,
-		Name:                "SystemAdmin",
-		HttpExpectedStatus:  http.StatusOK,
-	},
-	{
-		CallerCredentialJwt: "SystemAdmin",
-		Op:                  TreeOpAddOrg,
-		ParentOrgName:       "",
-		Name:                "RootOrg0",
-		HttpExpectedStatus:  http.StatusCreated,
-	},
-	{
-		CallerCredentialJwt: "SystemAdmin",
-		Op:                  TreeOpAddUser,
-		ParentOrgName:       "RootOrg0",
-		Name:                "RootOrg0Admin",
-		Roles:               []string{"Organization Admin"},
-		HttpExpectedStatus:  http.StatusCreated,
-	},
+var unauthorizedParentTest = append(baseTree, []treeOp{
 	{
 		CallerCredentialJwt: "RootOrg0Admin",
 		Op:                  TreeOpAddOrg,
@@ -265,6 +243,7 @@ var test5 = []treeOp{
 		Op:                  TreeOpAddUser,
 		ParentOrgName:       "RootOrg0SubOrg0",
 		Name:                "RootOrg0SubOrgAdmin0",
+		SimulateLogin:       true,
 		Roles:               []string{"Organization Admin"},
 		HttpExpectedStatus:  http.StatusCreated,
 	},
@@ -273,10 +252,62 @@ var test5 = []treeOp{
 		Op:                  TreeOpAddUser,
 		ParentOrgName:       "RootOrg0",
 		Name:                "RootOrg0-BadAdmin",
+		SimulateLogin:       true,
 		Roles:               []string{"Organization Admin"},
 		HttpExpectedStatus:  http.StatusUnauthorized,
 	},
-}
+}...)
+
+var listOrganizationsTest = append(baseTree, []treeOp{
+	{
+		CallerCredentialJwt: "RootOrg0Admin",
+		Op:                  TreeOpAddOrg,
+		ParentOrgName:       "RootOrg0",
+		Name:                "RootOrg0SubOrg0",
+		HttpExpectedStatus:  http.StatusCreated,
+	},
+	{
+		CallerCredentialJwt: "RootOrg0Admin",
+		Op:                  TreeOpAddOrg,
+		ParentOrgName:       "RootOrg0",
+		Name:                "RootOrg0SubOrg1",
+		HttpExpectedStatus:  http.StatusCreated,
+	},
+	{
+		CallerCredentialJwt: "RootOrg0Admin",
+		Op:                  TreeOpListOrganizations,
+		HttpExpectedStatus:  http.StatusOK,
+		ValidateFunc: func(t *testing.T, o *treeOp) {
+			var jsonResp genericJson
+			buff := bytes.NewBufferString(o.ResponseBody)
+			if errs := json.NewDecoder(buff).Decode(&jsonResp); errs != nil {
+				t.Fatal(errs)
+			}
+			if len(jsonResp["Children"].([]interface{})) != 2 {
+				t.Fatal("")
+			}
+		},
+	},
+}...)
+
+var invalidLoginTest = append(baseTree, []treeOp{
+	{
+		CallerCredentialJwt: "RootOrg0Admin",
+		Op:                  TreeOpAddUser,
+		ParentOrgName:       "RootOrg0",
+		Name:                "RootOrg0User1",
+		SimulateLogin:       false,
+		Roles:               []string{"Organization Admin"},
+		HttpExpectedStatus:  http.StatusCreated,
+	},
+	{
+		CallerCredentialJwt: "RootOrg0User1",
+		Op:                  TreeOpAddOrg,
+		ParentOrgName:       "RootOrg0",
+		Name:                "RootOrg0SubOrg1",
+		HttpExpectedStatus:  http.StatusForbidden,
+	},
+}...)
 
 func TestTree(t *testing.T) {
 	baseServer := server.NewServer()
@@ -285,8 +316,10 @@ func TestTree(t *testing.T) {
 
 	httpServer := httptest.NewServer(engine)
 	defer httpServer.Close()
-	t.Run("baseCreateTest - basic tree", testRunner(baseCreateTest, baseServer, httpServer))
-	t.Run("test1 : status bad request", testRunner(test1, baseServer, httpServer))
-	t.Run("test1 : unauthorized creations : lateral", testRunner(test2, baseServer, httpServer))
-	t.Run("test1 : unauthorized creations : parent", testRunner(test5, baseServer, httpServer))
+	t.Run("baseTree - basic tree", testRunner(baseTree, baseServer, httpServer))
+	t.Run("invalidRoleTest : status bad request", testRunner(invalidRoleTest, baseServer, httpServer))
+	t.Run("invalidRoleTest : unauthorized creations : lateral", testRunner(unauthorizedLateralRole, baseServer, httpServer))
+	t.Run("invalidRoleTest : unauthorized creations : parent", testRunner(unauthorizedParentTest, baseServer, httpServer))
+	t.Run("list organizations", testRunner(listOrganizationsTest, baseServer, httpServer))
+	t.Run("invalid login", testRunner(invalidLoginTest, baseServer, httpServer))
 }

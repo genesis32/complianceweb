@@ -22,11 +22,16 @@ func init() {
 	}
 }
 
-func simulateLogin(handler dao.DaoHandler, inviteCode string) string {
+func generateTestJwt() string {
 	jwt := utils.GenerateTestJwt(fmt.Sprintf("oauth|%d", utils.GetNextUniqueId()))
+	return jwt
+}
 
-	key := make([]byte, 64)
-	claims := utils.ParseTestJwt(jwt, key)
+func simulateLogin(handler dao.DaoHandler, inviteCode string) string {
+	jwt := generateTestJwt()
+
+	hsKey := make([]byte, 64)
+	claims := utils.ParseTestJwt(jwt, hsKey)
 	handler.InitUserFromInviteCode(inviteCode, claims["sub"].(string))
 	return jwt
 }
