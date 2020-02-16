@@ -19,14 +19,14 @@ import (
 	"github.com/gorilla/sessions"
 )
 
-func IndexHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+func IndexHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
 		"title": "Welcome",
 	})
 	return nil
 }
 
-func InviteHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+func InviteHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	if c.Request.Method == "GET" {
 		inviteCodeStr := c.Param("inviteCode")
 		inviteCode, _ := utils.StringToInt64(inviteCodeStr)
@@ -41,7 +41,7 @@ func InviteHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c
 	return nil
 }
 
-func LoginHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+func LoginHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var auth0Authenticator *auth.Auth0Authenticator
 	var ok bool
 	if auth0Authenticator, ok = s.Authenticator.(*auth.Auth0Authenticator); !ok {
@@ -82,7 +82,7 @@ func LoginHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Co
 	return nil
 }
 
-func CallbackHandler(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+func CallbackHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var auth0Authenticator *auth.Auth0Authenticator
 	var ok bool
 	if auth0Authenticator, ok = s.Authenticator.(*auth.Auth0Authenticator); !ok {

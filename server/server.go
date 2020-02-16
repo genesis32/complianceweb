@@ -117,7 +117,7 @@ func (s *Server) Shutdown() error {
 	return err
 }
 
-type webAppFunc func(s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *WebAppOperationResult
+type webAppFunc func(t *dao.OrganizationUser, s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *WebAppOperationResult
 type resourceApiFunc func(w http.ResponseWriter, r *http.Request, parameters resources.OperationParameters) *resources.OperationResult
 
 func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
@@ -126,30 +126,31 @@ func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
 
 func (s *Server) registerWebAppA(authenticationRequired bool, fn webAppFunc) func(c *gin.Context) {
 	return func(c *gin.Context) {
-		subject, ok := c.Get("authenticated_user_profile")
-		if !ok && authenticationRequired {
-			c.String(http.StatusUnauthorized, "TODO")
-			return
-		}
+		var userInfo *dao.OrganizationUser
+		if authenticationRequired {
+			subject, ok := c.Get("authenticated_user_profile")
+			if !ok {
+				c.String(http.StatusForbidden, "User does not exist")
+				return
+			}
 
-		var userId int64
-		if ok {
-			// TODO: Move the userinfo parameter to the method it's calling
-			userInfo := s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
+			userInfo = s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string), dao.UserActiveState)
 			if userInfo == nil {
 				c.String(http.StatusForbidden, "User does not exist")
 				return
 			}
-			userId = userInfo.ID
 		}
 
 		auditRecord := dao.NewAuditRecord("webapp", c.Request.Method)
-		auditRecord.OrganizationUserID = userId
+		auditRecord.OrganizationUserID = 0
+		if userInfo != nil {
+			auditRecord.OrganizationUserID = userInfo.ID
+		}
 		auditRecord.OrganizationID = 0 // TODO: Fix this
 
 		s.Dao.CreateAuditRecord(auditRecord)
 
-		operationResult := fn(s, s.SessionStore, s.Dao, c)
+		operationResult := fn(userInfo, s, s.SessionStore, s.Dao, c)
 
 		// TODO: Fix this so it's required in the future
 		if operationResult != nil {
@@ -175,7 +176,7 @@ func (s *Server) registerResourceApi(resourceAction resources.OrganizationResour
 			return
 		}
 
-		userInfo := s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
+		userInfo := s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string), dao.UserActiveState)
 		if userInfo == nil {
 			c.String(http.StatusForbidden, "User does not exist")
 			return

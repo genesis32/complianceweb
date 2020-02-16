@@ -33,7 +33,7 @@ func contains(n *UserOrganizationResponse, children []*UserOrganizationResponse)
 	return false
 }
 
-func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+func BootstrapApiPostHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 
 	configKeys := daoHandler.GetSettings(BootstrapConfigurationKey, SystemBaseUrlConfigurationKey)
 	if len(configKeys) == 0 || configKeys[BootstrapConfigurationKey].Value != "true" {
@@ -59,16 +59,13 @@ func BootstrapApiPostHandler(s *Server, store sessions.Store, daoHandler dao.Dao
 	return nil
 }
 
-func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+func OrganizationApiPostHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 
 	var createRequest OrganizationCreateRequest
 	if err := c.ShouldBind(&createRequest); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("binding: %s", err.Error()))
 		return nil
 	}
-
-	subject, _ := c.Get("authenticated_user_profile")
-	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	if createRequest.ParentOrganizationID != 0 {
 		// Make sure that user has visibility over a ParentOrganizationID
@@ -103,9 +100,7 @@ func OrganizationApiPostHandler(s *Server, store sessions.Store, daoHandler dao.
 	return nil
 }
 
-func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
-	subject, _ := c.Get("authenticated_user_profile")
-	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
+func OrganizationDetailsApiGetHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 
 	organizationIdStr := c.Param("organizationID")
 	organizationId, _ := utils.StringToInt64(organizationIdStr)
@@ -128,10 +123,7 @@ func OrganizationDetailsApiGetHandler(s *Server, store sessions.Store, daoHandle
 	return nil
 }
 
-func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
-	subject, _ := c.Get("authenticated_user_profile")
-
-	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
+func OrganizationApiGetHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 
 	organizations := daoHandler.LoadOrganizationsForUser(t.ID)
 	if len(organizations) == 0 {
@@ -168,17 +160,13 @@ func OrganizationApiGetHandler(s *Server, store sessions.Store, daoHandler dao.D
 	return nil
 }
 
-func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+func UserApiPostHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var addRequest AddUserToOrganizationRequest
 
 	if err := c.ShouldBind(&addRequest); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("upload format: %s", err.Error()))
 		return nil
 	}
-
-	subject, _ := c.Get("authenticated_user_profile")
-
-	t := daoHandler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	if len(addRequest.RoleNames) == 0 {
 		c.String(http.StatusBadRequest, "at least one role required")
@@ -210,16 +198,13 @@ func UserApiPostHandler(s *Server, store sessions.Store, daoHandler dao.DaoHandl
 	return nil
 }
 
-func OrganizationMetadataApiPutHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+func OrganizationMetadataApiPutHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var metadataUpdateRequest OrganizationMetadataUpdateRequest
 
 	if err := c.ShouldBind(&metadataUpdateRequest); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("metadata format: %s", err.Error()))
 		return nil
 	}
-
-	subject, _ := c.Get("authenticated_user_profile")
-	t := handler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	organizationIDStr := c.Param("organizationID")
 	organizationID, _ := utils.StringToInt64(organizationIDStr)
@@ -234,16 +219,13 @@ func OrganizationMetadataApiPutHandler(s *Server, store sessions.Store, handler 
 	return nil
 }
 
-func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+func OrganizationMetadataApiGetHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var metadataUpdateRequest OrganizationMetadataUpdateRequest
 
 	if err := c.ShouldBind(&metadataUpdateRequest); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("metadata format: %s", err.Error()))
 		return nil
 	}
-
-	subject, _ := c.Get("authenticated_user_profile")
-	t := handler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	organizationIDStr := c.Param("organizationID")
 	organizationID, _ := utils.StringToInt64(organizationIDStr)
@@ -268,16 +250,13 @@ func OrganizationMetadataApiGetHandler(s *Server, store sessions.Store, handler 
 	return auditRecord
 }
 
-func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+func UserRoleApiPostHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var rolesUpdateRequest SetRolesForUserRequest
 
 	if err := c.ShouldBind(&rolesUpdateRequest); err != nil {
 		c.String(http.StatusBadRequest, fmt.Sprintf("roles update format: %s", err.Error()))
 		return nil
 	}
-
-	subject, _ := c.Get("authenticated_user_profile")
-	t := handler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
 
 	userIDStr := c.Param("userID")
 	userID, _ := utils.StringToInt64(userIDStr)
@@ -306,13 +285,11 @@ func UserRoleApiPostHandler(s *Server, store sessions.Store, handler dao.DaoHand
 	return nil
 }
 
-func UserApiDeleteHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+func UserApiDeleteHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	return nil
 }
 
-func UserApiGetHandler(s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
-	subject, _ := c.Get("authenticated_user_profile")
-	t := handler.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string))
+func UserApiGetHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 
 	userIDStr := c.Param("userID")
 	userID, _ := utils.StringToInt64(userIDStr)
