@@ -2,6 +2,7 @@ package gcp
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -114,4 +115,38 @@ func createServiceAccountKey(ctx context.Context, jsonCredential []byte, service
 		return nil, fmt.Errorf("Projects.ServiceAccounts.Keys.Create: %v", err)
 	}
 	return key, nil
+}
+
+func retrieveState(db *sql.DB, serviceAccountEmail string) *ServiceAccountState {
+	sqlStatement := `
+		SELECT
+			state
+		FROM
+			resource_gcpserviceaccount
+		WHERE
+			external_ref = $1
+	`
+
+	ret := ServiceAccountState{}
+	row := db.QueryRow(sqlStatement, serviceAccountEmail)
+	err := row.Scan(&ret)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return &ret
+}
+
+func updateState(db *sql.DB, serviceAccountEmail string, state *ServiceAccountState) {
+	sqlStatement := `
+		UPDATE 
+			resource_gcpserviceaccount
+		SET
+		    state = $2
+		WHERE
+			external_ref = $1
+	`
+	_, err := db.Exec(sqlStatement, serviceAccountEmail, state)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

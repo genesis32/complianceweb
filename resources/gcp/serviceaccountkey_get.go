@@ -41,7 +41,7 @@ func (g ServiceAccountResourceKeyGetAction) PermissionName() string {
 
 func (g ServiceAccountResourceKeyGetAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 
-	daoHandler, _, _ := resources.MapAppParameters(params)
+	daoHandler, _, _, _ := resources.MapAppParameters(params)
 
 	a := &ServiceAccountResourceKeyGetAction{db: daoHandler.GetRawDatabaseHandle()}
 

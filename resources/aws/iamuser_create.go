@@ -1,20 +1,20 @@
 package aws
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/genesis32/complianceweb/utils"
 
 	"github.com/genesis32/complianceweb/resources"
 	"gopkg.in/validator.v2"
 )
 
 type IAMUserCreateResourcePostAction struct {
+	db *sql.DB
 }
 
 func (I IAMUserCreateResourcePostAction) RequiredMetadata() []string {
@@ -37,10 +37,31 @@ func (I IAMUserCreateResourcePostAction) PermissionName() string {
 	return "aws.iam.user.create.execute"
 }
 
-func (I IAMUserCreateResourcePostAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
+func (g *IAMUserCreateResourcePostAction) createRecord(identifier string, state iamUserState) int64 {
+	var err error
+	jsonBytes, err := json.Marshal(state)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sqlStatement := `
+		INSERT INTO resource_awsiam
+			(id, external_ref, state)
+		VALUES 
+			($1, $2, $3)
+	`
+	ret := utils.GetNextUniqueId()
+	_, err = g.db.Exec(sqlStatement, ret, identifier, string(jsonBytes))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return ret
+}
+
+func (g *IAMUserCreateResourcePostAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 	result := resources.NewOperationResult()
 
-	_, metadata, _ := resources.MapAppParameters(params)
+	daoHandler, metadata, _, theUser := resources.MapAppParameters(params)
 
 	var req IAMUserCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -62,32 +83,20 @@ func (I IAMUserCreateResourcePostAction) Execute(w http.ResponseWriter, r *http.
 		return result
 	}
 
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("us-west-2"),
-		Credentials: credentials.NewStaticCredentials(resourceMetadata.AWSCredentials.AccessKeyID,
-			resourceMetadata.AWSCredentials.AccessKeySecret, ""),
-	})
+	a := &IAMUserCreateResourcePostAction{db: daoHandler.GetRawDatabaseHandle()}
+	state := iamUserState{CreateRequest: req, State: UserStateCreatedNotApproved, UserIDCreatedBy: theUser.ID}
 
-	// Create a IAM service client.
-	svc := iam.New(sess)
-
-	createUserResult, err := svc.CreateUser(&iam.CreateUserInput{
-		UserName: &req.UserName,
-	})
-
-	if err != nil {
-		result.AuditHumanReadable = fmt.Sprintf("error creating user account: ")
-		return result
-	}
+	recordID := a.createRecord(req.UserName, state)
+	resp := IAMUserCreateResponse{ID: recordID, UserName: req.UserName}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if errs := json.NewEncoder(w).Encode(&createUserResult); errs != nil {
+	if errs := json.NewEncoder(w).Encode(&resp); errs != nil {
 		result.AuditHumanReadable = fmt.Sprintf("error encoding response: %s", errs.Error())
 		return result
 	}
 
-	result.AuditHumanReadable = fmt.Sprintf("created user account: %+v", createUserResult)
+	result.AuditHumanReadable = fmt.Sprintf("created: %+v. waiting for approval", req.UserName)
 
 	return result
 }

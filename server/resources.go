@@ -12,4 +12,5 @@ var loadedResources = []resources.OrganizationResourceAction{
 	&gcp.ServiceAccountResourceListGetAction{},
 	&gcp.ServiceAccountResourceKeyGetAction{},
 	&aws.IAMUserCreateResourcePostAction{},
+	&aws.IAMUserApproveResourcePostAction{},
 }

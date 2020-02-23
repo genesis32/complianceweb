@@ -39,7 +39,7 @@ func FindResourceActions(internalKey string, loadedResources []OrganizationResou
 	return ret
 }
 
-func MapAppParameters(params OperationParameters) (dao.ResourceDaoHandler, []byte, int64) {
+func MapAppParameters(params OperationParameters) (dao.ResourceDaoHandler, []byte, int64, *dao.OrganizationUser) {
 	daoHandler, ok := params["resourceDao"].(dao.ResourceDaoHandler)
 	if !ok {
 		log.Fatal("params['resourceDao'] not a ResourceDao type")
@@ -53,5 +53,8 @@ func MapAppParameters(params OperationParameters) (dao.ResourceDaoHandler, []byt
 	if !ok {
 		log.Fatal("params['organizationID'] not an int64 type")
 	}
-	return daoHandler, metadata, organizationID
+
+	userInfo, ok := params["userInfo"].(*dao.OrganizationUser)
+
+	return daoHandler, metadata, organizationID, userInfo
 }

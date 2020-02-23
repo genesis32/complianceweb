@@ -42,7 +42,7 @@ func (g ServiceAccountResourceKeyPostAction) PermissionName() string {
 }
 
 func (g ServiceAccountResourceKeyPostAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
-	daoHandler, metadataBytes, _ := resources.MapAppParameters(params)
+	daoHandler, metadataBytes, _, _ := resources.MapAppParameters(params)
 
 	a := &ServiceAccountResourcePostAction{db: daoHandler.GetRawDatabaseHandle()}
 	result := resources.NewOperationResult()

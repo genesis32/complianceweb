@@ -275,10 +275,10 @@ func (s *Server) Initialize() *gin.Engine {
 
 	webapp := s.router.Group("/webapp")
 	{
-		webapp.GET("/", s.registerWebApp(IndexHandler))
-		webapp.GET("/invite/:inviteCode", s.registerWebApp(InviteHandler))
-		webapp.GET("/login", s.registerWebApp(LoginHandler))
-		webapp.GET("/callback", s.registerWebApp(CallbackHandler))
+		webapp.GET("/", s.registerWebAppA(false, IndexHandler))
+		webapp.GET("/invite/:inviteCode", s.registerWebAppA(false, InviteHandler))
+		webapp.GET("/login", s.registerWebAppA(false, LoginHandler))
+		webapp.GET("/callback", s.registerWebAppA(false, CallbackHandler))
 	}
 
 	apiRoutes := s.router.Group("/api")

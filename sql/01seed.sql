@@ -30,7 +30,6 @@ INSERT INTO role VALUES (5, 'AWS Administrator');
 INSERT INTO role_permission_xref VALUES (5,(SELECT id FROM permission WHERE value = 'aws.iam.user.create.execute'));
 
 
-
 INSERT INTO registered_resources VALUES (1, 'GCP Service Accounts', 'gcp.serviceaccount', true);
 INSERT INTO registered_resources VALUES (2, 'GCP Service Account Keys', 'gcp.serviceaccount.keys', true);
 INSERT INTO registered_resources VALUES (3, 'AWS IAM User', 'aws.iam.user', true);

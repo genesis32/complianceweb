@@ -62,7 +62,7 @@ func (g *ServiceAccountResourcePostAction) createServiceAccountRecord(emailAddre
 */
 func (g *ServiceAccountResourcePostAction) Execute(w http.ResponseWriter, r *http.Request, params resources.OperationParameters) *resources.OperationResult {
 
-	daoHandler, metadataBytes, organizationID := resources.MapAppParameters(params)
+	daoHandler, metadataBytes, organizationID, _ := resources.MapAppParameters(params)
 
 	result := resources.NewOperationResult()
 
@@ -128,38 +128,4 @@ func (g *ServiceAccountResourcePostAction) Name() string {
 
 func (g *ServiceAccountResourcePostAction) InternalKey() string {
 	return "gcp.serviceaccount"
-}
-
-func retrieveState(db *sql.DB, serviceAccountEmail string) *ServiceAccountState {
-	sqlStatement := `
-		SELECT
-			state
-		FROM
-			resource_gcpserviceaccount
-		WHERE
-			external_ref = $1
-	`
-
-	ret := ServiceAccountState{}
-	row := db.QueryRow(sqlStatement, serviceAccountEmail)
-	err := row.Scan(&ret)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return &ret
-}
-
-func updateState(db *sql.DB, serviceAccountEmail string, state *ServiceAccountState) {
-	sqlStatement := `
-		UPDATE 
-			resource_gcpserviceaccount
-		SET
-		    state = $2
-		WHERE
-			external_ref = $1
-	`
-	_, err := db.Exec(sqlStatement, serviceAccountEmail, state)
-	if err != nil {
-		log.Fatal(err)
-	}
 }
