@@ -285,6 +285,20 @@ func UserRoleApiPostHandler(t *dao.OrganizationUser, s *Server, store sessions.S
 	return nil
 }
 
+func MeApiGetHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+	organizationUser := handler.LoadUserFromID(t.ID)
+	response := GetOrganizationUserResponse{ID: organizationUser.ID, DisplayName: organizationUser.DisplayName, Active: organizationUser.CurrentState == dao.UserActiveState}
+	for orgID, roles := range organizationUser.UserRoles {
+		var roleNames []string
+		for _, r := range roles {
+			roleNames = append(roleNames, r.DisplayName)
+		}
+		response.Roles = append(response.Roles, UserOrgRoles{OrganizationID: orgID, RoleNames: roleNames})
+	}
+	c.JSON(http.StatusOK, response)
+	return nil
+}
+
 func UserApiPutHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var userUpdateRequest UserUpdateRequest
 

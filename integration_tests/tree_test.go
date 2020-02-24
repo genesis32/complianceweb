@@ -24,6 +24,7 @@ const (
 	TreeOpListOrganizations = 5
 	TreeOpDeactivateUser    = 6
 	TreeOpActivateUser      = 7
+	TreeOpMeDetails         = 8
 )
 
 type treeOp struct {
@@ -200,6 +201,20 @@ func testRunner(opsToRun []treeOp, baseServer *server.Server, s *httptest.Server
 
 					}
 				}
+			case TreeOpMeDetails:
+				{
+					req := createBaseRequest(t, s, credentials[opsToRun[i].CallerCredentialJwt], "GET", "/api/me")
+					resp, err := cl.Do(req)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if resp.StatusCode != opsToRun[i].HttpExpectedStatus {
+						t.Fatalf("me details - statuscode expected: %d got: %d", opsToRun[i].HttpExpectedStatus, resp.StatusCode)
+					}
+					if opsToRun[i].HttpExpectedStatus >= 200 && opsToRun[i].HttpExpectedStatus < 300 {
+
+					}
+				}
 			}
 		}
 	}
@@ -347,6 +362,23 @@ var invalidLoginTest = append(baseTree, []treeOp{
 	},
 }...)
 
+var meDetailsUserTest = append(baseTree, []treeOp{
+	{
+		CallerCredentialJwt: "RootOrg0Admin",
+		Op:                  TreeOpAddUser,
+		ParentOrgName:       "RootOrg0",
+		Name:                "RootOrg0User1",
+		SimulateLogin:       true,
+		Roles:               []string{"Organization Admin"},
+		HttpExpectedStatus:  http.StatusCreated,
+	},
+	{
+		CallerCredentialJwt: "RootOrg0User1",
+		Op:                  TreeOpMeDetails,
+		HttpExpectedStatus:  http.StatusOK,
+	},
+}...)
+
 var deactivateUserTest = append(baseTree, []treeOp{
 	{
 		CallerCredentialJwt: "RootOrg0Admin",
@@ -372,6 +404,12 @@ var deactivateUserTest = append(baseTree, []treeOp{
 		CallerCredentialJwt: "RootOrg0User1",
 		Op:                  TreeOpListOrganizations,
 		HttpExpectedStatus:  http.StatusForbidden,
+	},
+	{
+		CallerCredentialJwt: "RootOrg0SubOrgAdmin0",
+		Op:                  TreeOpDeactivateUser,
+		Name:                "RootOrg0Admin",
+		HttpExpectedStatus:  http.StatusUnauthorized,
 	},
 }...)
 
@@ -404,4 +442,5 @@ func TestTree(t *testing.T) {
 	t.Run("invalid login", testRunner(invalidLoginTest, baseServer, httpServer))
 	t.Run("deactivate user", testRunner(deactivateUserTest, baseServer, httpServer))
 	t.Run("activate user", testRunner(activateUserTest, baseServer, httpServer))
+	t.Run("user details", testRunner(meDetailsUserTest, baseServer, httpServer))
 }
