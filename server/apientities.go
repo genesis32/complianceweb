@@ -28,6 +28,7 @@ type GetOrganizationUserResponse struct {
 	ID          int64 `json:",string,omitempty"`
 	DisplayName string
 	Roles       []UserOrgRoles
+	Active      bool
 }
 
 type AddUserToOrganizationRequest struct {
@@ -45,6 +46,10 @@ type AddUserToOrganizationResponse struct {
 type UserOrgRoles struct {
 	OrganizationID int64 `json:",string,omitempty"`
 	RoleNames      []string
+}
+
+type UserUpdateRequest struct {
+	Active bool
 }
 
 type SetRolesForUserRequest struct {

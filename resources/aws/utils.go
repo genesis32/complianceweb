@@ -55,6 +55,9 @@ func retrieveState(db *sql.DB, ID int64) *iamUserState {
 	ret := iamUserState{}
 	row := db.QueryRow(sqlStatement, ID)
 	err := row.Scan(&ret)
+	if err == sql.ErrNoRows {
+		return nil
+	}
 	if err != nil {
 		log.Fatal(err)
 	}

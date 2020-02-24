@@ -3,6 +3,7 @@ package aws
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -49,9 +50,9 @@ func (I IAMUserApproveResourcePostAction) Execute(w http.ResponseWriter, r *http
 		return result
 	}
 
-	if errs := validator.Validate(req); errs != nil {
-		http.Error(w, errs.Error(), http.StatusBadRequest)
-		result.AuditHumanReadable = fmt.Sprintf("error: failed to validate request err: %v", errs)
+	if err := validator.Validate(req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		result.AuditHumanReadable = fmt.Sprintf("error: failed to validate request err: %v", err)
 		return result
 	}
 
@@ -75,36 +76,36 @@ func (I IAMUserApproveResourcePostAction) Execute(w http.ResponseWriter, r *http
 		return result
 	}
 
-	theState.State = UserStateApproved
-	updateState(daoHandler.GetRawDatabaseHandle(), req.ID, theState)
 	resp := IAMUserApproveResponse{Approved: true, ID: req.ID}
 	if false {
-		sess, err := session.NewSession(&aws.Config{
+		if sess, err := session.NewSession(&aws.Config{
 			Region: aws.String("us-west-2"),
 			Credentials: credentials.NewStaticCredentials(resourceMetadata.AWSCredentials.AccessKeyID,
 				resourceMetadata.AWSCredentials.AccessKeySecret, ""),
-		})
-
-		// Create a IAM service client.
-		svc := iam.New(sess)
-		resp.CreateUserOutput, err = svc.CreateUser(&iam.CreateUserInput{
-			UserName: &req.UserName,
-		})
-		if err != nil {
-			result.AuditHumanReadable = fmt.Sprintf("error creating user account: ")
-			return result
+		}); err != nil {
+			log.Fatal(err)
+		} else {
+			svc := iam.New(sess)
+			p := &iam.CreateUserInput{
+				UserName: &req.UserName,
+			}
+			// Create a IAM service client.
+			if resp.CreateUserOutput, err = svc.CreateUser(p); err != nil {
+				result.AuditHumanReadable = fmt.Sprintf("error creating user account: ")
+				return result
+			}
 		}
 	}
+	theState.State = UserStateApproved
+	updateState(daoHandler.GetRawDatabaseHandle(), req.ID, theState)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if errs := json.NewEncoder(w).Encode(&resp); errs != nil {
-		result.AuditHumanReadable = fmt.Sprintf("error encoding response: %s", errs.Error())
-		return result
+	if err := json.NewEncoder(w).Encode(&resp); err != nil {
+		log.Fatal(err)
 	}
 
 	result.AuditHumanReadable = fmt.Sprintf("approved account id: %d name:%s", req.ID, req.UserName)
-
 	return result
 }
 

@@ -173,14 +173,14 @@ func (d *Dao) LoadUserFromID(id int64) *OrganizationUser {
 	{
 		sqlStatement := `
 			SELECT
-				id, display_name
+				id, display_name, current_state
 			FROM
 				organization_user 
 			WHERE
 				id = $1
 `
 		row := d.Db.QueryRow(sqlStatement, id)
-		err := row.Scan(&ret.ID, &ret.DisplayName)
+		err := row.Scan(&ret.ID, &ret.DisplayName, &ret.CurrentState)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
@@ -206,13 +206,17 @@ func (d *Dao) LoadUserFromID(id int64) *OrganizationUser {
 		defer rows.Close()
 
 		for rows.Next() {
-			var organizationID, roleID int64
+			var roleID int64
 			var roleName string
+			var organizationID sql.NullInt64
 			err = rows.Scan(&organizationID, &roleID, &roleName)
 			if err != nil {
 				log.Fatal(err)
 			}
-			ret.UserRoles[organizationID] = append(ret.UserRoles[organizationID], Role{ID: roleID, DisplayName: roleName})
+			if organizationID.Valid {
+				ret.UserRoles[organizationID.Int64] = append(ret.UserRoles[organizationID.Int64], Role{ID: roleID, DisplayName: roleName})
+				ret.Organizations = append(ret.Organizations, organizationID.Int64)
+			}
 		}
 	}
 	return &ret
@@ -613,11 +617,11 @@ const (
 )
 
 func (d *Dao) LoadUserFromCredential(credential string, state int) *OrganizationUser {
-	sqlStatement := `SELECT id, display_name, ARRAY(SELECT organization_id FROM organization_organization_user_xref WHERE organization_user_id = id), (current_state = 1) FROM organization_user WHERE idp_credential_value=$1 AND current_state=$2`
+	sqlStatement := `SELECT id, display_name, ARRAY(SELECT organization_id FROM organization_organization_user_xref WHERE organization_user_id = id), current_state FROM organization_user WHERE idp_credential_value=$1 AND current_state=$2`
 	var orgUser OrganizationUser
 
 	row := d.Db.QueryRow(sqlStatement, credential, state)
-	err := row.Scan(&orgUser.ID, &orgUser.DisplayName, pq.Array(&orgUser.Organizations), &orgUser.Active)
+	err := row.Scan(&orgUser.ID, &orgUser.DisplayName, pq.Array(&orgUser.Organizations), &orgUser.CurrentState)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}

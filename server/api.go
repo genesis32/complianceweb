@@ -285,7 +285,14 @@ func UserRoleApiPostHandler(t *dao.OrganizationUser, s *Server, store sessions.S
 	return nil
 }
 
-func UserApiDeleteHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+func UserApiPutHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+	var userUpdateRequest UserUpdateRequest
+
+	if err := c.ShouldBind(&userUpdateRequest); err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("roles update format: %s", err.Error()))
+		return nil
+	}
+
 	userIDStr := c.Param("userID")
 	userID, err := utils.StringToInt64(userIDStr)
 	if err != nil {
@@ -293,28 +300,54 @@ func UserApiDeleteHandler(t *dao.OrganizationUser, s *Server, store sessions.Sto
 		return nil
 	}
 
-	theUser := handler.LoadUserFromID(userID)
-	if theUser == nil {
+	// TODO: We should return the same code regardless of whether you can't find the user
+	// or you are not authorized to view.
+	organizationUser := handler.LoadUserFromID(userID)
+	if organizationUser == nil {
 		c.String(http.StatusNotFound, "user not found")
 		return nil
 	}
 
-	for k, _ := range theUser.UserRoles {
-		if !handler.DoesUserHavePermission(t.ID, k, UserUpdatePermission) {
-			c.String(http.StatusUnauthorized, "not authorized to update user")
+	// user is not associated with any org (could be a sysadmin)
+	if len(organizationUser.Organizations) == 0 {
+		c.String(http.StatusUnauthorized, "not authorized")
+		return nil
+	}
+
+	// if you don't have visibility over just one of the org don't allow this.
+	for _, oid := range organizationUser.Organizations {
+		userCanView := handler.CanUserViewOrg(userID, oid)
+		if !userCanView {
+			c.String(http.StatusUnauthorized, "not authorized")
+			return nil
+		}
+		// Make sure the caller has permission to assign the role to this user.
+		hasPermission := handler.DoesUserHavePermission(t.ID, oid, UserUpdatePermission)
+		if !hasPermission {
+			c.String(http.StatusUnauthorized, "not authorized")
 			return nil
 		}
 	}
 
-	handler.UpdateUserState(theUser.ID, dao.UserDeactiveState)
-	result := &WebAppOperationResult{
-		AuditHumanReadable: fmt.Sprintf("Deactivated user id:%d name:%s", theUser.ID, theUser.DisplayName),
+	switch {
+	case userUpdateRequest.Active && (dao.UserDeactiveState == organizationUser.CurrentState):
+		if organizationUser.ID == t.ID {
+			c.String(http.StatusBadRequest, "not allowed to activate yourself")
+			return nil
+		}
+		handler.UpdateUserState(organizationUser.ID, dao.UserActiveState)
+		organizationUser.CurrentState = dao.UserActiveState
+	case (userUpdateRequest.Active == false) && (dao.UserActiveState == organizationUser.CurrentState):
+		if organizationUser.ID == t.ID {
+			c.String(http.StatusBadRequest, "not allowed to deactivate yourself")
+			return nil
+		}
+		handler.UpdateUserState(organizationUser.ID, dao.UserDeactiveState)
+		organizationUser.CurrentState = dao.UserDeactiveState
 	}
 
-	// TODO: Make a proper response object
-	c.String(200, "")
-
-	return result
+	c.Status(http.StatusOK)
+	return nil
 }
 
 func UserApiGetHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, handler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
@@ -323,7 +356,7 @@ func UserApiGetHandler(t *dao.OrganizationUser, s *Server, store sessions.Store,
 	userID, _ := utils.StringToInt64(userIDStr)
 
 	organizationUser := handler.LoadUserFromID(userID)
-	response := GetOrganizationUserResponse{ID: organizationUser.ID, DisplayName: organizationUser.DisplayName}
+	response := GetOrganizationUserResponse{ID: organizationUser.ID, DisplayName: organizationUser.DisplayName, Active: organizationUser.CurrentState == dao.UserActiveState}
 	for orgID, roles := range organizationUser.UserRoles {
 		// don't return roles belonging to orgs the user isn't part of
 		if !handler.CanUserViewOrg(t.ID, orgID) {

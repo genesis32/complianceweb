@@ -294,7 +294,7 @@ func (s *Server) Initialize() *gin.Engine {
 
 		apiRoutes.POST("/users", s.registerWebApp(UserApiPostHandler))
 		apiRoutes.GET("/users/:userID", s.registerWebApp(UserApiGetHandler))
-		apiRoutes.DELETE("/users/:userID", s.registerWebApp(UserApiDeleteHandler))
+		apiRoutes.PUT("/users/:userID", s.registerWebApp(UserApiPutHandler))
 
 		apiRoutes.PUT("/users/:userID/roles", s.registerWebApp(UserRoleApiPostHandler))
 	}
