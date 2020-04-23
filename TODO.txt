@@ -14,18 +14,23 @@
 # Configurable amount of time before invites are purged.
 # Remove ability for Organizational Admin to modify his own roles (except when maybe under bootstrap mode?)
 # Maybe we should expose the core primitives of the services for all the responses.
-# Pubsub event emitter?
+# pubsub/socket audit log emitter?
 # Would be kind of cool if you could put together some data in this app and then output it to ladon policies:
   https://github.com/ory/ladon
 # Add a dual control method to AWS iam.
+# Add json portal
 
 DONE
 - Assign roles to gcp service account
 - Looks interesting: https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts
 - Remove front-end cruft from the old version.
 - A README
-k Deployable in Docker
+- Deployable in Docker
 
 BUGS
 # Nice error message when you've already registered an account. [right now it dies]
 2020/02/10 16:03:48 /Users/dmassey/go/src/github.com/genesis32/complianceweb/dao/dao.go:682: error loading user from invite code %v: %w5357732814678434347pq: duplicate key value violates unique constraint "organization_user_idp_credential_value_key"
+
+Use Case Ideas
+2 separate apps that use this app as a layer. The upper organization is the company, and the lower are merchants/customers that have to put
+information into the portal so that the merchants can process them.

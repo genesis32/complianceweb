@@ -36,6 +36,9 @@ type WebAppOperationResult struct {
 	AuditHumanReadable string
 }
 
+type webAppFunc func(t *dao.OrganizationUser, s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *WebAppOperationResult
+type resourceApiFunc func(w http.ResponseWriter, r *http.Request, parameters resources.OperationParameters) *resources.OperationResult
+
 func initCookieKeys(daoHandler dao.DaoHandler) ([]byte, []byte) {
 	authKey := utils.GenerateRandomBytes(32)
 	encKey := utils.GenerateRandomBytes(32)
@@ -116,9 +119,6 @@ func (s *Server) Shutdown() error {
 	err := s.Dao.Close()
 	return err
 }
-
-type webAppFunc func(t *dao.OrganizationUser, s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *WebAppOperationResult
-type resourceApiFunc func(w http.ResponseWriter, r *http.Request, parameters resources.OperationParameters) *resources.OperationResult
 
 func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
 	return s.registerWebAppA(true, fn)
