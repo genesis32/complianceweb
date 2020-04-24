@@ -10,12 +10,11 @@ import (
 )
 
 func init() {
-	RootCmd.AddCommand(GenerateJwtCommand)
-
-	GenerateJwtCommand.Flags().StringP("sub", "s", "provider | subjectid", "subject field")
+	RootCmd.AddCommand(generateJwtCommand)
+	generateJwtCommand.Flags().StringP("sub", "s", "provider | subjectid", "subject field")
 }
 
-var GenerateJwtCommand = &cobra.Command{
+var generateJwtCommand = &cobra.Command{
 	Use: "generatejwt",
 	Run: func(cmd *cobra.Command, args []string) {
 
@@ -30,6 +29,7 @@ var GenerateJwtCommand = &cobra.Command{
 	},
 }
 
+// RootCmd is the base command for the whole app
 var RootCmd = &cobra.Command{
 	Use: "server",
 	Run: func(cmd *cobra.Command, args []string) {

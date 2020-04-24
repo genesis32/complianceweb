@@ -14,13 +14,16 @@ import (
 	oidc "github.com/coreos/go-oidc"
 )
 
+// Authenticator provies the interface to validate a bearer token and return user claims
 type Authenticator interface {
 	ValidateAuthorizationHeader(headerValue string) (utils.OpenIDClaims, error)
 }
 
+// TestAuthenticator just validates a jwt
 type TestAuthenticator struct {
 }
 
+// Auth0Authenticator validates a jwt from auth0
 type Auth0Authenticator struct {
 	Provider *oidc.Provider
 	Config   oauth2.Config
@@ -30,6 +33,7 @@ type Auth0Authenticator struct {
 
 var bearerRegex = regexp.MustCompile("[B|b]earer\\s+(\\S+)")
 
+// ValidateAuthorizationHeader validates the simple jwt
 func (a *TestAuthenticator) ValidateAuthorizationHeader(headerValue string) (utils.OpenIDClaims, error) {
 
 	hv := strings.TrimSpace(headerValue)
@@ -48,11 +52,13 @@ func (a *TestAuthenticator) ValidateAuthorizationHeader(headerValue string) (uti
 	return claims, nil
 }
 
+// NewTestAuthenticator returns a new jwt authenticator
 func NewTestAuthenticator() Authenticator {
 	log.Printf("WARNING USING A TEST AUTHENTICATOR THAT ONLY SUPPORTS HS256")
 	return &TestAuthenticator{}
 }
 
+// ValidateAuthorizationHeader validates and auth0 simple jwt
 func (a *Auth0Authenticator) ValidateAuthorizationHeader(headerValue string) (utils.OpenIDClaims, error) {
 
 	hv := strings.TrimSpace(headerValue)
@@ -81,10 +87,11 @@ func (a *Auth0Authenticator) ValidateAuthorizationHeader(headerValue string) (ut
 	return profile, nil
 }
 
-func NewAuth0Authenticator(callbackUrl, issuerBaseUrl, auth0ClientID, auth0ClientSecret string) Authenticator {
+// NewAuth0Authenticator returns new auth0 authenticator.
+func NewAuth0Authenticator(callbackURL, issuerBaseURL, auth0ClientID, auth0ClientSecret string) Authenticator {
 	ctx := context.Background()
 
-	provider, err := oidc.NewProvider(ctx, issuerBaseUrl)
+	provider, err := oidc.NewProvider(ctx, issuerBaseURL)
 	if err != nil {
 		log.Fatalf("Failed to get provider: %v", err)
 	}
@@ -92,7 +99,7 @@ func NewAuth0Authenticator(callbackUrl, issuerBaseUrl, auth0ClientID, auth0Clien
 	conf := oauth2.Config{
 		ClientID:     auth0ClientID,
 		ClientSecret: auth0ClientSecret,
-		RedirectURL:  callbackUrl,
+		RedirectURL:  callbackURL,
 		Endpoint:     provider.Endpoint(),
 		Scopes:       []string{oidc.ScopeOpenID, "profile"},
 	}
