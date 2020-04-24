@@ -1,16 +1,18 @@
 package server
 
+// The keys in the settings table that corresponse to configuration.
 const (
 	BootstrapConfigurationKey               = "bootstrap.enabled"
 	CookieAuthenticationKeyConfigurationKey = "cookie.authentication.key"
 	CookieEncryptionKeyConfigurationKey     = "cookie.encryption.key"
-	OIDCIssuerBaseUrlConfigurationKey       = "oidc.issuer.baseurl"
-	Auth0ClientIdConfigurationKey           = "oidc.auth0.clientid"
+	OIDCIssuerBaseURLConfigurationKey       = "oidc.issuer.baseurl"
+	Auth0ClientIDConfigurationKey           = "oidc.auth0.clientid"
 	Auth0ClientSecretConfigurationKey       = "oidc.auth0.clientsecret"
-	SystemBaseUrlConfigurationKey           = "system.baseurl"
+	SystemBaseURLConfigurationKey           = "system.baseurl"
 )
 
-type ServerConfiguration struct {
+// ServerConfiguration contains all the database configuration.
+type Configuration struct {
 	CookieAuthenticationKey []byte // TODO: Encrypt in database
 	CookieEncryptionKey     []byte // TODO: Encrypt in database
 	OIDCIssuer              string // TODO: Encrypt in database

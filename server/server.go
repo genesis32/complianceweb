@@ -21,7 +21,7 @@ import (
 
 // Server contains all the server code
 type Server struct {
-	Config              *ServerConfiguration
+	Config              *Configuration
 	Dao                 dao.DaoHandler
 	ResourceDao         dao.ResourceDaoHandler
 	SessionStore        sessions.Store
@@ -58,8 +58,8 @@ func init() {
 	log.SetFlags(log.LstdFlags | log.Llongfile)
 }
 
-func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
-	ret := &ServerConfiguration{}
+func loadConfiguration(daoHandler dao.DaoHandler) *Configuration {
+	ret := &Configuration{}
 
 	{
 		dbSettings := daoHandler.GetSettings(CookieAuthenticationKeyConfigurationKey, CookieEncryptionKeyConfigurationKey)
@@ -72,14 +72,14 @@ func loadConfiguration(daoHandler dao.DaoHandler) *ServerConfiguration {
 	}
 
 	{
-		dbSettings := daoHandler.GetSettings(OIDCIssuerBaseUrlConfigurationKey, Auth0ClientIdConfigurationKey, Auth0ClientSecretConfigurationKey, SystemBaseUrlConfigurationKey)
+		dbSettings := daoHandler.GetSettings(OIDCIssuerBaseURLConfigurationKey, Auth0ClientIDConfigurationKey, Auth0ClientSecretConfigurationKey, SystemBaseURLConfigurationKey)
 		if len(dbSettings) != 4 {
 			log.Fatal("parameters not loaded. Do all oidc configuration parameters exist in the db?")
 		}
-		ret.OIDCIssuer = dbSettings[OIDCIssuerBaseUrlConfigurationKey].Value
-		ret.Auth0ClientID = dbSettings[Auth0ClientIdConfigurationKey].Value
+		ret.OIDCIssuer = dbSettings[OIDCIssuerBaseURLConfigurationKey].Value
+		ret.Auth0ClientID = dbSettings[Auth0ClientIDConfigurationKey].Value
 		ret.Auth0ClientSecret = dbSettings[Auth0ClientSecretConfigurationKey].Value
-		ret.SystemBaseUrl = dbSettings[SystemBaseUrlConfigurationKey].Value
+		ret.SystemBaseUrl = dbSettings[SystemBaseURLConfigurationKey].Value
 	}
 
 	return ret

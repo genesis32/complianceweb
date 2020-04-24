@@ -15,8 +15,8 @@ import (
 func createInviteLink(baseUrl string, inviteCode int64, daoHandler dao.DaoHandler) string {
 	var href string
 	if baseUrl == "" {
-		configKeys := daoHandler.GetSettings(SystemBaseUrlConfigurationKey)
-		href = fmt.Sprintf("%s/webapp/login?inviteCode=%v", configKeys[SystemBaseUrlConfigurationKey].Value, inviteCode)
+		configKeys := daoHandler.GetSettings(SystemBaseURLConfigurationKey)
+		href = fmt.Sprintf("%s/webapp/login?inviteCode=%v", configKeys[SystemBaseURLConfigurationKey].Value, inviteCode)
 		return href
 	} else {
 		href = fmt.Sprintf("%s/webapp/login?inviteCode=%v", baseUrl, inviteCode)
@@ -35,7 +35,7 @@ func contains(n *UserOrganizationResponse, children []*UserOrganizationResponse)
 
 func BootstrapApiPostHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 
-	configKeys := daoHandler.GetSettings(BootstrapConfigurationKey, SystemBaseUrlConfigurationKey)
+	configKeys := daoHandler.GetSettings(BootstrapConfigurationKey, SystemBaseURLConfigurationKey)
 	if len(configKeys) == 0 || configKeys[BootstrapConfigurationKey].Value != "true" {
 		c.String(http.StatusMethodNotAllowed, fmt.Sprintf("not allowed"))
 		return nil
@@ -53,7 +53,7 @@ func BootstrapApiPostHandler(t *dao.OrganizationUser, s *Server, store sessions.
 	daoHandler.SetRolesToUser(0, userId, []string{"System Admin"})
 
 	response.InviteCode = inviteCode
-	response.Href = createInviteLink(configKeys[SystemBaseUrlConfigurationKey].Value, inviteCode, daoHandler)
+	response.Href = createInviteLink(configKeys[SystemBaseURLConfigurationKey].Value, inviteCode, daoHandler)
 
 	c.JSON(200, response)
 	return nil

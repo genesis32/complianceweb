@@ -19,6 +19,7 @@ import (
 	"github.com/gorilla/sessions"
 )
 
+// IndexHandler is just a placeholder for now.
 func IndexHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
 		"title": "Welcome",
@@ -41,6 +42,7 @@ func InviteHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, dao
 	return nil
 }
 
+// LoginHandler initiate the login flow.
 func LoginHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var auth0Authenticator *auth.Auth0Authenticator
 	var ok bool
@@ -82,6 +84,7 @@ func LoginHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, dao 
 	return nil
 }
 
+// CallbackHandler handles the redirect from auth0.
 func CallbackHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var auth0Authenticator *auth.Auth0Authenticator
 	var ok bool
@@ -92,7 +95,7 @@ func CallbackHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, d
 	w := c.Writer
 	r := c.Request
 
-	settings := dao.GetSettings(Auth0ClientIdConfigurationKey)
+	settings := dao.GetSettings(Auth0ClientIDConfigurationKey)
 	if len(settings) == 0 {
 		log.Fatal("no clientid configured")
 	}
@@ -122,7 +125,7 @@ func CallbackHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, d
 	}
 
 	oidcConfig := &oidc.Config{
-		ClientID: settings[Auth0ClientIdConfigurationKey].Value,
+		ClientID: settings[Auth0ClientIDConfigurationKey].Value,
 	}
 
 	idToken, err := auth0Authenticator.Provider.Verifier(oidcConfig).Verify(context.TODO(), rawIDToken)

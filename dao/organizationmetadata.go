@@ -6,14 +6,15 @@ import (
 	"errors"
 )
 
+// OrganizationMetadata contains a generic dictionary of metadata for the organization.
 type OrganizationMetadata map[string]interface{}
 
+// Value is required to serialize it.
 func (a OrganizationMetadata) Value() (driver.Value, error) {
 	return json.Marshal(a)
 }
 
-// Make the Attrs struct implement the sql.Scanner interface. This method
-// simply decodes a JSON-encoded value into the struct fields.
+// Scan is required to deserialize it.
 func (a *OrganizationMetadata) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
