@@ -13,25 +13,38 @@ import (
 	"github.com/genesis32/complianceweb/utils"
 
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 )
 
+// Flags used for querying optional data.
 const (
 	UserReadExecutePermissionFlag = 1
 )
 
+// States a user account can be in.
+const (
+	UserCreatedState  = 0
+	UserActiveState   = 1
+	UserDeactiveState = 2
+)
+
+// RegisteredResourcesStore is the the resources which the permissions can operate on.
 type RegisteredResourcesStore map[string]*RegisteredResource
+
+// SettingsStore contains the global app settings organized by key.
 type SettingsStore map[string]*Setting
+
+//UserRoleStore contains a mapping of organization id to role for a user
 type UserRoleStore map[int64][]Role
 
+// AuditMetadata is a generic string keyed json object
 type AuditMetadata map[string]interface{}
 
+// Value is needed to marshal the json
 func (a AuditMetadata) Value() (driver.Value, error) {
 	return json.Marshal(a)
 }
 
-// Make the Attrs struct implement the sql.Scanner interface. This method
-// simply decodes a JSON-encoded value into the struct fields.
+// Scan decodes a JSON-encoded value into the struct fields.
 func (a *AuditMetadata) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
@@ -41,6 +54,7 @@ func (a *AuditMetadata) Scan(value interface{}) error {
 	return json.Unmarshal(b, &a)
 }
 
+// AuditRecord just records an action that has taken place.
 type AuditRecord struct {
 	ID                 int64
 	CreatedTimestamp   time.Time
@@ -52,6 +66,7 @@ type AuditRecord struct {
 	HumanReadable      string
 }
 
+// NewAuditRecord returns a new AuditRecord.
 func NewAuditRecord(internalKey, method string) *AuditRecord {
 	return &AuditRecord{
 		ID:               utils.GetNextUniqueId(),
@@ -61,21 +76,23 @@ func NewAuditRecord(internalKey, method string) *AuditRecord {
 	}
 }
 
+// DaoHandler is the primary interface to the database.
+// TODO(ddmassey): Rename later
 type DaoHandler interface {
 	Open()
 	Close() error
 	TrySelect()
 
-	LoadMetadataInTree(organizationId int64, key string) (int64, []byte)
+	LoadMetadataInTree(organizationID int64, key string) (int64, []byte)
 	LoadOrganizationMetadata(organizationID int64) OrganizationMetadata
 	UpdateOrganizationMetadata(organizationID int64, metadata OrganizationMetadata)
 
 	CreateOrganization(*Organization)
-	AssignOrganizationToParent(parentId, orgID int64) bool
+	AssignOrganizationToParent(parentID, orgID int64) bool
 	LoadOrganizationsForUser(userID int64) map[int64]*Organization
 	LoadOrganizationDetails(organizationID int64, permissionFlags uint) *Organization
 
-	CreateInviteForUser(organizationId int64, name string) (int64, int64)
+	CreateInviteForUser(organizationID int64, name string) (int64, int64)
 
 	LoadUserFromInviteCode(inviteCode int64) *OrganizationUser
 	LoadUserFromCredential(credential string, state int) *OrganizationUser
@@ -101,11 +118,11 @@ type DaoHandler interface {
 	SealAuditRecord(record *AuditRecord)
 }
 
-type Dao struct {
+type dao struct {
 	Db *sql.DB
 }
 
-func (d *Dao) CreateAuditRecord(record *AuditRecord) {
+func (d *dao) CreateAuditRecord(record *AuditRecord) {
 	sqlStatement := `
 		INSERT INTO
 			resource_audit_log
@@ -120,7 +137,7 @@ func (d *Dao) CreateAuditRecord(record *AuditRecord) {
 
 }
 
-func (d *Dao) SealAuditRecord(record *AuditRecord) {
+func (d *dao) SealAuditRecord(record *AuditRecord) {
 	sqlStatement := `
 		UPDATE 
 			resource_audit_log
@@ -138,7 +155,7 @@ func (d *Dao) SealAuditRecord(record *AuditRecord) {
 	}
 }
 
-func (d *Dao) HasValidRoles(roles []string) bool {
+func (d *dao) HasValidRoles(roles []string) bool {
 
 	sqlStatement := `
 		SELECT 
@@ -157,7 +174,7 @@ func (d *Dao) HasValidRoles(roles []string) bool {
 	return cnt == len(roles)
 }
 
-func (d *Dao) UpdateUserState(id int64, state int) {
+func (d *dao) UpdateUserState(id int64, state int) {
 	sqlStatement := `
 		UPDATE organization_user SET current_state = $2 WHERE id = $1 
 `
@@ -168,7 +185,7 @@ func (d *Dao) UpdateUserState(id int64, state int) {
 	}
 }
 
-func (d *Dao) LoadUserFromID(id int64) *OrganizationUser {
+func (d *dao) LoadUserFromID(id int64) *OrganizationUser {
 	var ret OrganizationUser
 	{
 		sqlStatement := `
@@ -222,18 +239,18 @@ func (d *Dao) LoadUserFromID(id int64) *OrganizationUser {
 	return &ret
 }
 
-func (d *Dao) UpdateOrganizationMetadata(organizationID int64, metadata OrganizationMetadata) {
+func (d *dao) UpdateOrganizationMetadata(organizationID int64, metadata OrganizationMetadata) {
 	sqlStatement := `
 		UPDATE organization SET metadata = $2 WHERE id = $1 
 `
 	_, err := d.Db.Exec(sqlStatement, organizationID, metadata)
 
 	if err != nil {
-		log.Fatalf("error updating metadata %w", err)
+		log.Fatalf("error updating metadata %v", err)
 	}
 }
 
-func (d *Dao) LoadOrganizationMetadata(organizationID int64) OrganizationMetadata {
+func (d *dao) LoadOrganizationMetadata(organizationID int64) OrganizationMetadata {
 	sqlStatement := `SELECT metadata FROM organization WHERE id = $1`
 	var ret OrganizationMetadata
 
@@ -249,11 +266,12 @@ func (d *Dao) LoadOrganizationMetadata(organizationID int64) OrganizationMetadat
 	return ret
 }
 
-func NewDaoHandler(db *sql.DB) *Dao {
-	return &Dao{Db: db}
+// NewDaoHandler returns a new DaoHandler wrapping the passed in db.
+func NewDaoHandler(db *sql.DB) DaoHandler {
+	return &dao{Db: db}
 }
 
-func (d *Dao) SetRolesToUser(organizationID, userID int64, roleNames []string) {
+func (d *dao) SetRolesToUser(organizationID, userID int64, roleNames []string) {
 	tx, _ := d.Db.Begin()
 
 	sqlStatement := `
@@ -289,7 +307,7 @@ func (d *Dao) SetRolesToUser(organizationID, userID int64, roleNames []string) {
 	}
 }
 
-func (d *Dao) UpdateSettings(settings ...*Setting) error {
+func (d *dao) UpdateSettings(settings ...*Setting) error {
 
 	tx, _ := d.Db.Begin()
 
@@ -316,7 +334,7 @@ func (d *Dao) UpdateSettings(settings ...*Setting) error {
 	return nil
 }
 
-func (d *Dao) GetSettings(keys ...string) SettingsStore {
+func (d *dao) GetSettings(keys ...string) SettingsStore {
 
 	sqlStatement := `
 		SELECT
@@ -345,7 +363,7 @@ func (d *Dao) GetSettings(keys ...string) SettingsStore {
 	return ret
 }
 
-func (d *Dao) DoesUserHaveSystemPermission(userID int64, permission string) bool {
+func (d *dao) DoesUserHaveSystemPermission(userID int64, permission string) bool {
 	// TODO: Verify that this has permission starts with system.
 	sqlStatement := `
 				SELECT
@@ -375,7 +393,7 @@ func (d *Dao) DoesUserHaveSystemPermission(userID int64, permission string) bool
 	return count > 0
 }
 
-func (d *Dao) DoesUserHavePermission(userID, organizationID int64, permission string) bool {
+func (d *dao) DoesUserHavePermission(userID, organizationID int64, permission string) bool {
 	// Test if any of the orgs between the root of the user and the org they are acting on (including
 	// themselves contain the necessary role w/ permission.
 	sqlStatement := `
@@ -404,7 +422,7 @@ func (d *Dao) DoesUserHavePermission(userID, organizationID int64, permission st
 	return count > 0
 }
 
-func (d *Dao) AssignOrganizationToParent(parentID int64, orgID int64) bool {
+func (d *dao) AssignOrganizationToParent(parentID int64, orgID int64) bool {
 	sqlStatement := `
 		UPDATE
 			organization	
@@ -419,13 +437,13 @@ func (d *Dao) AssignOrganizationToParent(parentID int64, orgID int64) bool {
 	}
 
 	if err != nil {
-		log.Fatalf("error adding organization to parent %w", err)
+		log.Fatalf("error adding organization to parent %v", err)
 	}
 
 	return true
 }
 
-func (d *Dao) CanUserViewOrg(userID, organizationID int64) bool {
+func (d *dao) CanUserViewOrg(userID, organizationID int64) bool {
 	sqlStatement := ` 
 	SELECT
 		count(1)
@@ -452,7 +470,7 @@ func (d *Dao) CanUserViewOrg(userID, organizationID int64) bool {
 
 	return count > 0
 }
-func (d *Dao) LoadMetadataInTree(organizationId int64, key string) (int64, []byte) {
+func (d *dao) LoadMetadataInTree(organizationID int64, key string) (int64, []byte) {
 	// find my first parent that has a valid service account (will always terminate at the root)
 	sqlStatement := `
 SELECT
@@ -471,11 +489,11 @@ WHERE
     metadata->>$2 IS NOT NULL
 ORDER BY ordernum DESC LIMIT 1;
 	`
-	row := d.Db.QueryRow(sqlStatement, organizationId, key)
+	row := d.Db.QueryRow(sqlStatement, organizationID, key)
 
-	var organizationID int64
+	var returnOrganizationID int64
 	var organizationMetadata []byte
-	err := row.Scan(&organizationID, &organizationMetadata)
+	err := row.Scan(&organizationID, &returnOrganizationID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, []byte{}
 	}
@@ -487,7 +505,7 @@ ORDER BY ordernum DESC LIMIT 1;
 	return organizationID, organizationMetadata
 }
 
-func (d *Dao) Open() {
+func (d *dao) Open() {
 	var err error
 
 	var dbConnectionString string
@@ -510,7 +528,7 @@ func (d *Dao) Open() {
 	}
 }
 
-func (d *Dao) LoadOrganizationDetails(organizationID int64, permissionFlags uint) *Organization {
+func (d *dao) LoadOrganizationDetails(organizationID int64, permissionFlags uint) *Organization {
 	ret := &Organization{}
 	{
 		sqlStatement := `
@@ -527,7 +545,7 @@ func (d *Dao) LoadOrganizationDetails(organizationID int64, permissionFlags uint
 			return nil
 		}
 		if err != nil {
-			log.Fatalf("error loading organization id %d error: %w", organizationID, err)
+			log.Fatalf("error loading organization id %d error: %v", organizationID, err)
 		}
 	}
 
@@ -563,7 +581,7 @@ func (d *Dao) LoadOrganizationDetails(organizationID int64, permissionFlags uint
 	return ret
 }
 
-func (d *Dao) LoadOrganizationsForUser(userID int64) map[int64]*Organization {
+func (d *dao) LoadOrganizationsForUser(userID int64) map[int64]*Organization {
 	sqlStatement := `
 	SELECT 
 		id,display_name,path
@@ -594,7 +612,7 @@ func (d *Dao) LoadOrganizationsForUser(userID int64) map[int64]*Organization {
 	return userOrgs
 }
 
-func (d *Dao) LogUserIn(idpAuthCredential string) (*OrganizationUser, error) {
+func (d *dao) LogUserIn(idpAuthCredential string) (*OrganizationUser, error) {
 	sqlStatement := `SELECT id, display_name, ARRAY(SELECT organization_id FROM organization_organization_user_xref WHERE organization_user_id = id) AS organizations FROM organization_user WHERE idp_type = 'AUTH0' AND idp_credential_value=$1 AND current_state=1`
 	var orgUser OrganizationUser
 
@@ -610,13 +628,7 @@ func (d *Dao) LogUserIn(idpAuthCredential string) (*OrganizationUser, error) {
 	return &orgUser, nil
 }
 
-const (
-	UserCreatedState  = 0
-	UserActiveState   = 1
-	UserDeactiveState = 2
-)
-
-func (d *Dao) LoadUserFromCredential(credential string, state int) *OrganizationUser {
+func (d *dao) LoadUserFromCredential(credential string, state int) *OrganizationUser {
 	sqlStatement := `SELECT id, display_name, ARRAY(SELECT organization_id FROM organization_organization_user_xref WHERE organization_user_id = id), current_state FROM organization_user WHERE idp_credential_value=$1 AND current_state=$2`
 	var orgUser OrganizationUser
 
@@ -626,12 +638,12 @@ func (d *Dao) LoadUserFromCredential(credential string, state int) *Organization
 		return nil
 	}
 	if err != nil {
-		log.Fatalf("error loading user from credential %v: %w", credential, err)
+		log.Fatalf("error loading user from credential %s: %v", credential, err)
 	}
 
 	return &orgUser
 }
-func (d *Dao) LoadUserFromInviteCode(inviteCode int64) *OrganizationUser {
+func (d *dao) LoadUserFromInviteCode(inviteCode int64) *OrganizationUser {
 	sqlStatement := `SELECT id, display_name FROM organization_user WHERE invite_code=$1 AND current_state=0`
 	var orgUser OrganizationUser
 
@@ -641,13 +653,13 @@ func (d *Dao) LoadUserFromInviteCode(inviteCode int64) *OrganizationUser {
 		return nil
 	}
 	if err != nil {
-		log.Fatalf("error loading user from invite code %v: %w", inviteCode, err)
+		log.Fatalf("error loading user from invite code %d: %v", inviteCode, err)
 	}
 
 	return &orgUser
 }
 
-func (d *Dao) CreateInviteForUser(organizationId int64, name string) (int64, int64) {
+func (d *dao) CreateInviteForUser(organizationID int64, name string) (int64, int64) {
 	var err error
 	orgUserID := utils.GetNextUniqueId()
 	inviteCode := utils.GetNextUniqueId()
@@ -661,11 +673,11 @@ func (d *Dao) CreateInviteForUser(organizationId int64, name string) (int64, int
 		log.Fatal(err)
 	}
 
-	if organizationId != 0 {
+	if organizationID != 0 {
 		sqlRefStatement := `
 INSERT INTO organization_organization_user_xref (organization_id, organization_user_id) VALUES ($1, $2);
 	`
-		_, err = d.Db.Exec(sqlRefStatement, organizationId, orgUserID)
+		_, err = d.Db.Exec(sqlRefStatement, organizationID, orgUserID)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -674,7 +686,7 @@ INSERT INTO organization_organization_user_xref (organization_id, organization_u
 	return orgUserID, inviteCode
 }
 
-func (d *Dao) CreateOrganization(org *Organization) {
+func (d *dao) CreateOrganization(org *Organization) {
 	sqlStatement := `
 	INSERT INTO organization (id, display_name, metadata, path)
 	VALUES ($1, $2, '{}', $3)
@@ -685,7 +697,7 @@ func (d *Dao) CreateOrganization(org *Organization) {
 	}
 }
 
-func (d *Dao) InitUserFromInviteCode(inviteCode, idpAuthCredential string) bool {
+func (d *dao) InitUserFromInviteCode(inviteCode, idpAuthCredential string) bool {
 	sqlStatement := `
 	UPDATE 
 		organization_user 
@@ -701,12 +713,12 @@ func (d *Dao) InitUserFromInviteCode(inviteCode, idpAuthCredential string) bool 
 		return false
 	}
 	if err != nil {
-		log.Fatal("error loading user from invite code %v: %w", inviteCode, err)
+		log.Fatalf("error loading user from invite code %s: %v", inviteCode, err)
 	}
 	return true
 }
 
-func (d *Dao) LoadEnabledResources() RegisteredResourcesStore {
+func (d *dao) LoadEnabledResources() RegisteredResourcesStore {
 	sqlStatement := `
 		SELECT
 				id, display_name, internal_key
@@ -734,7 +746,7 @@ func (d *Dao) LoadEnabledResources() RegisteredResourcesStore {
 	return ret
 }
 
-func (d *Dao) TrySelect() {
+func (d *dao) TrySelect() {
 	sqlStatement := `SELECT id FROM organization WHERE display_name='baz'`
 	row := d.Db.QueryRow(sqlStatement)
 	var out int
@@ -744,7 +756,7 @@ func (d *Dao) TrySelect() {
 	}
 }
 
-func (d *Dao) Close() error {
+func (d *dao) Close() error {
 	err := d.Db.Close()
 	return err
 }
