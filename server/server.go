@@ -7,10 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"strings"
 	"time"
-
-	"github.com/genesis32/complianceweb/resources"
 
 	"github.com/genesis32/complianceweb/auth"
 	"github.com/genesis32/complianceweb/dao"
@@ -37,7 +34,6 @@ type WebAppOperationResult struct {
 }
 
 type webAppFunc func(t *dao.OrganizationUser, s *Server, store sessions.Store, dao dao.DaoHandler, c *gin.Context) *WebAppOperationResult
-type resourceApiFunc func(w http.ResponseWriter, r *http.Request, parameters resources.OperationParameters) *resources.OperationResult
 
 func initCookieKeys(daoHandler dao.DaoHandler) ([]byte, []byte) {
 	authKey := utils.GenerateRandomBytes(32)
@@ -162,71 +158,71 @@ func (s *Server) registerWebAppA(authenticationRequired bool, fn webAppFunc) fun
 	}
 }
 
-func (s *Server) registerResourceApi(resourceAction resources.OrganizationResourceAction, fn resourceApiFunc) func(c *gin.Context) {
-	return func(c *gin.Context) {
-		organizationID, err := utils.StringToInt64(c.Param("organizationID"))
-		if err != nil {
-			c.String(http.StatusBadRequest, "expected numeric organization identifier")
-			return
-		}
+// func (s *Server) registerResourceApi(resourceAction resources.OrganizationResourceAction, fn resourceApiFunc) func(c *gin.Context) {
+// 	return func(c *gin.Context) {
+// 		organizationID, err := utils.StringToInt64(c.Param("organizationID"))
+// 		if err != nil {
+// 			c.String(http.StatusBadRequest, "expected numeric organization identifier")
+// 			return
+// 		}
 
-		subject, exists := c.Get("authenticated_user_profile")
-		if !exists {
-			c.String(http.StatusForbidden, "")
-			return
-		}
+// 		subject, exists := c.Get("authenticated_user_profile")
+// 		if !exists {
+// 			c.String(http.StatusForbidden, "")
+// 			return
+// 		}
 
-		userInfo := s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string), dao.UserActiveState)
-		if userInfo == nil {
-			c.String(http.StatusForbidden, "User does not exist")
-			return
-		}
+// 		userInfo := s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string), dao.UserActiveState)
+// 		if userInfo == nil {
+// 			c.String(http.StatusForbidden, "User does not exist")
+// 			return
+// 		}
 
-		hasPermission := s.Dao.DoesUserHavePermission(userInfo.ID, organizationID, resourceAction.PermissionName())
+// 		hasPermission := s.Dao.DoesUserHavePermission(userInfo.ID, organizationID, resourceAction.PermissionName())
 
-		// @gmail.com as orgs
-		//		log.Printf("resource organizationid: %d required permission: %s user: %d", organizationID, resourceAction.PermissionName(), userInfo.ID)
-		if !hasPermission {
-			c.String(http.StatusUnauthorized, "not authorized")
-			return
-		}
+// 		// @gmail.com as orgs
+// 		//		log.Printf("resource organizationid: %d required permission: %s user: %d", organizationID, resourceAction.PermissionName(), userInfo.ID)
+// 		if !hasPermission {
+// 			c.String(http.StatusUnauthorized, "not authorized")
+// 			return
+// 		}
 
-		var metadataBytes []byte
+// 		var metadataBytes []byte
 
-		/* TODO: For now just pull the first one from the list (next return a metadata that is the intersction of everything in this list */
-		requiredMetadata := resourceAction.RequiredMetadata()
-		if len(requiredMetadata) > 0 {
-			_, metadataBytes = s.Dao.LoadMetadataInTree(organizationID, requiredMetadata[0])
-			if len(metadataBytes) == 0 {
-				c.String(http.StatusBadRequest, "no metadata present")
-				return
-			}
-		}
-		//		log.Printf("loaded orgid: %d metadata: %v", orgIDWithMetadata, metadata)
+// 		/* TODO: For now just pull the first one from the list (next return a metadata that is the intersction of everything in this list */
+// 		requiredMetadata := resourceAction.RequiredMetadata()
+// 		if len(requiredMetadata) > 0 {
+// 			_, metadataBytes = s.Dao.LoadMetadataInTree(organizationID, requiredMetadata[0])
+// 			if len(metadataBytes) == 0 {
+// 				c.String(http.StatusBadRequest, "no metadata present")
+// 				return
+// 			}
+// 		}
+// 		//		log.Printf("loaded orgid: %d metadata: %v", orgIDWithMetadata, metadata)
 
-		params := resources.OperationParameters{}
-		params["organizationID"] = organizationID
-		params["organizationMetadata"] = metadataBytes
-		params["resourceDao"] = s.ResourceDao
-		params["userInfo"] = userInfo
+// 		params := resources.OperationParameters{}
+// 		params["organizationID"] = organizationID
+// 		params["organizationMetadata"] = metadataBytes
+// 		params["resourceDao"] = s.ResourceDao
+// 		params["userInfo"] = userInfo
 
-		auditRecord := dao.NewAuditRecord(resourceAction.InternalKey(), resourceAction.Method())
-		auditRecord.OrganizationUserID = userInfo.ID
-		auditRecord.OrganizationID = organizationID
+// 		auditRecord := dao.NewAuditRecord(resourceAction.InternalKey(), resourceAction.Method())
+// 		auditRecord.OrganizationUserID = userInfo.ID
+// 		auditRecord.OrganizationID = organizationID
 
-		s.Dao.CreateAuditRecord(auditRecord)
+// 		s.Dao.CreateAuditRecord(auditRecord)
 
-		operationResult := fn(c.Writer, c.Request, params)
+// 		operationResult := fn(c.Writer, c.Request, params)
 
-		// TODO: Fix this so it's required in the future
-		if operationResult != nil {
-			auditRecord.Metadata = newResourceAuditMetadata(operationResult.AuditMetadata)
-			auditRecord.HumanReadable = operationResult.AuditHumanReadable
-		}
+// 		// TODO: Fix this so it's required in the future
+// 		if operationResult != nil {
+// 			auditRecord.Metadata = newResourceAuditMetadata(operationResult.AuditMetadata)
+// 			auditRecord.HumanReadable = operationResult.AuditHumanReadable
+// 		}
 
-		s.Dao.SealAuditRecord(auditRecord)
-	}
-}
+// 		s.Dao.SealAuditRecord(auditRecord)
+// 	}
+// }
 
 func validOIDCTokenRequired(s *Server) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -299,26 +295,6 @@ func (s *Server) Initialize() *gin.Engine {
 		apiRoutes.PUT("/users/:userID/roles", s.registerWebApp(UserRoleApiPostHandler))
 	}
 
-	resourceRoutes := apiRoutes.Group("/resources/:organizationID")
-	for _, r := range s.registeredResources {
-		keyResources := resources.FindResourceActions(r.InternalKey, loadedResources)
-		for _, theResource := range keyResources {
-			path := theResource.Path()
-			if len(strings.TrimSpace(path)) > 0 {
-				if path[0] != '/' {
-					path = fmt.Sprintf("%s/%s", theResource.InternalKey(), path)
-				} else {
-					path = fmt.Sprintf("%s%s", theResource.InternalKey(), path)
-				}
-			} else {
-				path = fmt.Sprintf("%s", theResource.InternalKey())
-			}
-			resourceRoutes.Handle(theResource.Method(),
-				path,
-				s.registerResourceApi(theResource, theResource.Execute))
-		}
-	}
-
 	return s.router
 }
 
@@ -328,15 +304,6 @@ func (s *Server) Serve() {
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-// TODO: Make it work on a glob?
-func newResourceAuditMetadata(metadata resources.OperationMetadata) dao.AuditMetadata {
-	ret := make(dao.AuditMetadata)
-	for k, v := range metadata {
-		ret[k] = v
-	}
-	return ret
 }
 
 // TODO: Make it work on a glob?

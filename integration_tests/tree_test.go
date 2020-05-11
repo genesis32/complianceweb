@@ -15,6 +15,8 @@ import (
 	"github.com/genesis32/complianceweb/server"
 )
 
+type genericJson map[string]interface{}
+
 const (
 	TreeOpAddUser           = 0
 	TreeOpAddOrg            = 1

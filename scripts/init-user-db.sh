@@ -9,7 +9,6 @@ EOSQL
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "enterpriseportal2" < /tmp/00schema.sql
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "enterpriseportal2" < /tmp/01seed.sql
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "enterpriseportal2" < /tmp/02resource_schema.sql
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "enterpriseportal2" <<-EO1SQL
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ep2;
