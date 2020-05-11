@@ -1,9 +1,11 @@
 package server
 
+// BootstrapRequest contains initial information to make the app ready for use.
 type BootstrapRequest struct {
 	SystemAdminName string
 }
 
+// BootstrapResponse contains the response of the BootstrapRequest.
 type BootstrapResponse struct {
 	InviteCode int64 `json:",string,omitempty"`
 	Href       string
@@ -31,18 +33,24 @@ type GetOrganizationUserResponse struct {
 	Active      bool
 }
 
+// AddUserToOrganizationRequest adds a user to an organization.
+// TODO(ddmassey): Do we maybe need to break them out by type?
 type AddUserToOrganizationRequest struct {
 	Name                 string
 	ParentOrganizationID int64 `json:",string,omitempty"`
 	RoleNames            []string
+	CreateCredential     bool
 }
 
+// AddUserToOrganizationResponse is the response the server returns.
 type AddUserToOrganizationResponse struct {
-	InviteCode int64 `json:",string,omitempty"`
-	UserID     int64 `json:",string,omitempty"`
-	Href       string
+	InviteCode  int64 `json:",string,omitempty"`
+	UserID      int64 `json:",string,omitempty"`
+	Href        string
+	Credentials string `json:",,omitempty"`
 }
 
+// UserOrgRoles provides the role names a user has an organization.
 type UserOrgRoles struct {
 	OrganizationID int64 `json:",string,omitempty"`
 	RoleNames      []string

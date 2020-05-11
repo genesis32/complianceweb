@@ -160,7 +160,8 @@ func OrganizationApiGetHandler(t *dao.OrganizationUser, s *Server, store session
 	return nil
 }
 
-func UserApiPostHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
+// UserAPIPostHandler creates a new User in the system (could be an application)
+func UserAPIPostHandler(t *dao.OrganizationUser, s *Server, store sessions.Store, daoHandler dao.DaoHandler, c *gin.Context) *WebAppOperationResult {
 	var addRequest AddUserToOrganizationRequest
 
 	if err := c.ShouldBind(&addRequest); err != nil {

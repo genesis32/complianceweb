@@ -1,4 +1,4 @@
-package integration_tests
+package integrationtests
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"github.com/genesis32/complianceweb/server"
 )
 
-type genericJson map[string]interface{}
+type genericJSON map[string]interface{}
 
 const (
 	TreeOpAddUser           = 0
@@ -36,7 +36,7 @@ type treeOp struct {
 	Name                string
 	Roles               []string
 	SimulateLogin       bool
-	HttpExpectedStatus  int
+	HTTPExpectedStatus  int
 	ResponseBody        string
 	ValidateFunc        func(t *testing.T, o *treeOp)
 }
@@ -61,11 +61,11 @@ func testRunner(opsToRun []treeOp, baseServer *server.Server, s *httptest.Server
 					if err != nil {
 						t.Fatal(err)
 					}
-					if resp.StatusCode != opsToRun[i].HttpExpectedStatus {
-						t.Fatalf("bootstrap - statuscode expected: %d got: %d", opsToRun[i].HttpExpectedStatus, resp.StatusCode)
+					if resp.StatusCode != opsToRun[i].HTTPExpectedStatus {
+						t.Fatalf("bootstrap - statuscode expected: %d got: %d", opsToRun[i].HTTPExpectedStatus, resp.StatusCode)
 					}
-					if opsToRun[i].HttpExpectedStatus >= 200 && opsToRun[i].HttpExpectedStatus < 300 {
-						var jsonResp genericJson
+					if opsToRun[i].HTTPExpectedStatus >= 200 && opsToRun[i].HTTPExpectedStatus < 300 {
+						var jsonResp genericJSON
 						if errs := json.NewDecoder(resp.Body).Decode(&jsonResp); errs != nil {
 							t.Fatal(errs)
 						}
@@ -92,11 +92,11 @@ func testRunner(opsToRun []treeOp, baseServer *server.Server, s *httptest.Server
 					if err != nil {
 						t.Fatal(err)
 					}
-					if resp.StatusCode != opsToRun[i].HttpExpectedStatus {
-						t.Fatalf("add org - statuscode expected: %d got: %d", opsToRun[i].HttpExpectedStatus, resp.StatusCode)
+					if resp.StatusCode != opsToRun[i].HTTPExpectedStatus {
+						t.Fatalf("add org - statuscode expected: %d got: %d", opsToRun[i].HTTPExpectedStatus, resp.StatusCode)
 					}
-					if opsToRun[i].HttpExpectedStatus >= 200 && opsToRun[i].HttpExpectedStatus < 300 {
-						var jsonResp genericJson
+					if opsToRun[i].HTTPExpectedStatus >= 200 && opsToRun[i].HTTPExpectedStatus < 300 {
+						var jsonResp genericJSON
 						if errs := json.NewDecoder(resp.Body).Decode(&jsonResp); errs != nil {
 							t.Fatal(errs)
 						}
@@ -121,11 +121,11 @@ func testRunner(opsToRun []treeOp, baseServer *server.Server, s *httptest.Server
 					if err != nil {
 						t.Fatal(err)
 					}
-					if resp.StatusCode != opsToRun[i].HttpExpectedStatus {
-						t.Fatalf("add user - statuscode expected: %d got: %d", opsToRun[i].HttpExpectedStatus, resp.StatusCode)
+					if resp.StatusCode != opsToRun[i].HTTPExpectedStatus {
+						t.Fatalf("add user - statuscode expected: %d got: %d", opsToRun[i].HTTPExpectedStatus, resp.StatusCode)
 					}
-					if opsToRun[i].HttpExpectedStatus >= 200 && opsToRun[i].HttpExpectedStatus < 300 {
-						var jsonResp genericJson
+					if opsToRun[i].HTTPExpectedStatus >= 200 && opsToRun[i].HTTPExpectedStatus < 300 {
+						var jsonResp genericJSON
 						if errs := json.NewDecoder(resp.Body).Decode(&jsonResp); errs != nil {
 							t.Fatal(errs)
 						}
@@ -153,10 +153,10 @@ func testRunner(opsToRun []treeOp, baseServer *server.Server, s *httptest.Server
 					if err != nil {
 						t.Fatal(err)
 					}
-					if resp.StatusCode != opsToRun[i].HttpExpectedStatus {
-						t.Fatalf("add user - statuscode expected: %d got: %d", opsToRun[i].HttpExpectedStatus, resp.StatusCode)
+					if resp.StatusCode != opsToRun[i].HTTPExpectedStatus {
+						t.Fatalf("add user - statuscode expected: %d got: %d", opsToRun[i].HTTPExpectedStatus, resp.StatusCode)
 					}
-					if opsToRun[i].HttpExpectedStatus >= 200 && opsToRun[i].HttpExpectedStatus < 300 {
+					if opsToRun[i].HTTPExpectedStatus >= 200 && opsToRun[i].HTTPExpectedStatus < 300 {
 						if v, errs := ioutil.ReadAll(resp.Body); errs != nil {
 							t.Fatal(errs)
 						} else {
@@ -178,10 +178,10 @@ func testRunner(opsToRun []treeOp, baseServer *server.Server, s *httptest.Server
 					if err != nil {
 						t.Fatal(err)
 					}
-					if resp.StatusCode != opsToRun[i].HttpExpectedStatus {
-						t.Fatalf("add user - statuscode expected: %d got: %d", opsToRun[i].HttpExpectedStatus, resp.StatusCode)
+					if resp.StatusCode != opsToRun[i].HTTPExpectedStatus {
+						t.Fatalf("add user - statuscode expected: %d got: %d", opsToRun[i].HTTPExpectedStatus, resp.StatusCode)
 					}
-					if opsToRun[i].HttpExpectedStatus >= 200 && opsToRun[i].HttpExpectedStatus < 300 {
+					if opsToRun[i].HTTPExpectedStatus >= 200 && opsToRun[i].HTTPExpectedStatus < 300 {
 
 					}
 				}
@@ -196,10 +196,10 @@ func testRunner(opsToRun []treeOp, baseServer *server.Server, s *httptest.Server
 					if err != nil {
 						t.Fatal(err)
 					}
-					if resp.StatusCode != opsToRun[i].HttpExpectedStatus {
-						t.Fatalf("add user - statuscode expected: %d got: %d", opsToRun[i].HttpExpectedStatus, resp.StatusCode)
+					if resp.StatusCode != opsToRun[i].HTTPExpectedStatus {
+						t.Fatalf("add user - statuscode expected: %d got: %d", opsToRun[i].HTTPExpectedStatus, resp.StatusCode)
 					}
-					if opsToRun[i].HttpExpectedStatus >= 200 && opsToRun[i].HttpExpectedStatus < 300 {
+					if opsToRun[i].HTTPExpectedStatus >= 200 && opsToRun[i].HTTPExpectedStatus < 300 {
 
 					}
 				}
@@ -210,10 +210,10 @@ func testRunner(opsToRun []treeOp, baseServer *server.Server, s *httptest.Server
 					if err != nil {
 						t.Fatal(err)
 					}
-					if resp.StatusCode != opsToRun[i].HttpExpectedStatus {
-						t.Fatalf("me details - statuscode expected: %d got: %d", opsToRun[i].HttpExpectedStatus, resp.StatusCode)
+					if resp.StatusCode != opsToRun[i].HTTPExpectedStatus {
+						t.Fatalf("me details - statuscode expected: %d got: %d", opsToRun[i].HTTPExpectedStatus, resp.StatusCode)
 					}
-					if opsToRun[i].HttpExpectedStatus >= 200 && opsToRun[i].HttpExpectedStatus < 300 {
+					if opsToRun[i].HTTPExpectedStatus >= 200 && opsToRun[i].HTTPExpectedStatus < 300 {
 
 					}
 				}
@@ -227,14 +227,14 @@ var baseTree = []treeOp{
 		CallerCredentialJwt: "",
 		Op:                  TreeOpBootstrap,
 		Name:                "SystemAdmin",
-		HttpExpectedStatus:  http.StatusOK,
+		HTTPExpectedStatus:  http.StatusOK,
 	},
 	{
 		CallerCredentialJwt: "SystemAdmin",
 		Op:                  TreeOpAddOrg,
 		ParentOrgName:       "",
 		Name:                "RootOrg0",
-		HttpExpectedStatus:  http.StatusCreated,
+		HTTPExpectedStatus:  http.StatusCreated,
 	},
 	{
 		CallerCredentialJwt: "SystemAdmin",
@@ -243,7 +243,7 @@ var baseTree = []treeOp{
 		ParentOrgName:       "RootOrg0",
 		Name:                "RootOrg0Admin",
 		Roles:               []string{"Organization Admin"},
-		HttpExpectedStatus:  http.StatusCreated,
+		HTTPExpectedStatus:  http.StatusCreated,
 	},
 }
 
@@ -255,7 +255,7 @@ var invalidRoleTest = append(baseTree, []treeOp{
 		SimulateLogin:       false,
 		Name:                "RootOrg0Admin1",
 		Roles:               []string{"Org Admin"},
-		HttpExpectedStatus:  http.StatusBadRequest,
+		HTTPExpectedStatus:  http.StatusBadRequest,
 	},
 }...)
 
@@ -265,14 +265,14 @@ var unauthorizedLateralRole = append(baseTree, []treeOp{
 		Op:                  TreeOpAddOrg,
 		ParentOrgName:       "",
 		Name:                "RootOrg1",
-		HttpExpectedStatus:  http.StatusCreated,
+		HTTPExpectedStatus:  http.StatusCreated,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0Admin",
 		Op:                  TreeOpAddOrg,
 		ParentOrgName:       "RootOrg0",
 		Name:                "RootOrg0SubOrg0",
-		HttpExpectedStatus:  http.StatusCreated,
+		HTTPExpectedStatus:  http.StatusCreated,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0Admin",
@@ -281,7 +281,7 @@ var unauthorizedLateralRole = append(baseTree, []treeOp{
 		SimulateLogin:       true,
 		Name:                "RootOrg1Admin",
 		Roles:               []string{"Organization Admin"},
-		HttpExpectedStatus:  http.StatusUnauthorized,
+		HTTPExpectedStatus:  http.StatusUnauthorized,
 	},
 }...)
 
@@ -291,7 +291,7 @@ var unauthorizedParentTest = append(baseTree, []treeOp{
 		Op:                  TreeOpAddOrg,
 		ParentOrgName:       "RootOrg0",
 		Name:                "RootOrg0SubOrg0",
-		HttpExpectedStatus:  http.StatusCreated,
+		HTTPExpectedStatus:  http.StatusCreated,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0Admin",
@@ -300,7 +300,7 @@ var unauthorizedParentTest = append(baseTree, []treeOp{
 		Name:                "RootOrg0SubOrgAdmin0",
 		SimulateLogin:       true,
 		Roles:               []string{"Organization Admin"},
-		HttpExpectedStatus:  http.StatusCreated,
+		HTTPExpectedStatus:  http.StatusCreated,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0SubOrgAdmin0",
@@ -309,7 +309,7 @@ var unauthorizedParentTest = append(baseTree, []treeOp{
 		Name:                "RootOrg0-BadAdmin",
 		SimulateLogin:       true,
 		Roles:               []string{"Organization Admin"},
-		HttpExpectedStatus:  http.StatusUnauthorized,
+		HTTPExpectedStatus:  http.StatusUnauthorized,
 	},
 }...)
 
@@ -319,21 +319,21 @@ var listOrganizationsTest = append(baseTree, []treeOp{
 		Op:                  TreeOpAddOrg,
 		ParentOrgName:       "RootOrg0",
 		Name:                "RootOrg0SubOrg0",
-		HttpExpectedStatus:  http.StatusCreated,
+		HTTPExpectedStatus:  http.StatusCreated,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0Admin",
 		Op:                  TreeOpAddOrg,
 		ParentOrgName:       "RootOrg0",
 		Name:                "RootOrg0SubOrg1",
-		HttpExpectedStatus:  http.StatusCreated,
+		HTTPExpectedStatus:  http.StatusCreated,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0Admin",
 		Op:                  TreeOpListOrganizations,
-		HttpExpectedStatus:  http.StatusOK,
+		HTTPExpectedStatus:  http.StatusOK,
 		ValidateFunc: func(t *testing.T, o *treeOp) {
-			var jsonResp genericJson
+			var jsonResp genericJSON
 			buff := bytes.NewBufferString(o.ResponseBody)
 			if errs := json.NewDecoder(buff).Decode(&jsonResp); errs != nil {
 				t.Fatal(errs)
@@ -353,14 +353,14 @@ var invalidLoginTest = append(baseTree, []treeOp{
 		Name:                "RootOrg0User1",
 		SimulateLogin:       false,
 		Roles:               []string{"Organization Admin"},
-		HttpExpectedStatus:  http.StatusCreated,
+		HTTPExpectedStatus:  http.StatusCreated,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0User1",
 		Op:                  TreeOpAddOrg,
 		ParentOrgName:       "RootOrg0",
 		Name:                "RootOrg0SubOrg1",
-		HttpExpectedStatus:  http.StatusForbidden,
+		HTTPExpectedStatus:  http.StatusForbidden,
 	},
 }...)
 
@@ -372,12 +372,12 @@ var meDetailsUserTest = append(baseTree, []treeOp{
 		Name:                "RootOrg0User1",
 		SimulateLogin:       true,
 		Roles:               []string{"Organization Admin"},
-		HttpExpectedStatus:  http.StatusCreated,
+		HTTPExpectedStatus:  http.StatusCreated,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0User1",
 		Op:                  TreeOpMeDetails,
-		HttpExpectedStatus:  http.StatusOK,
+		HTTPExpectedStatus:  http.StatusOK,
 	},
 }...)
 
@@ -389,29 +389,29 @@ var deactivateUserTest = append(baseTree, []treeOp{
 		Name:                "RootOrg0User1",
 		SimulateLogin:       true,
 		Roles:               []string{"Organization Admin"},
-		HttpExpectedStatus:  http.StatusCreated,
+		HTTPExpectedStatus:  http.StatusCreated,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0User1",
 		Op:                  TreeOpListOrganizations,
-		HttpExpectedStatus:  http.StatusOK,
+		HTTPExpectedStatus:  http.StatusOK,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0Admin",
 		Op:                  TreeOpDeactivateUser,
 		Name:                "RootOrg0User1",
-		HttpExpectedStatus:  http.StatusOK,
+		HTTPExpectedStatus:  http.StatusOK,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0User1",
 		Op:                  TreeOpListOrganizations,
-		HttpExpectedStatus:  http.StatusForbidden,
+		HTTPExpectedStatus:  http.StatusForbidden,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0SubOrgAdmin0",
 		Op:                  TreeOpDeactivateUser,
 		Name:                "RootOrg0Admin",
-		HttpExpectedStatus:  http.StatusUnauthorized,
+		HTTPExpectedStatus:  http.StatusUnauthorized,
 	},
 }...)
 
@@ -420,12 +420,12 @@ var activateUserTest = append(deactivateUserTest, []treeOp{
 		CallerCredentialJwt: "RootOrg0Admin",
 		Op:                  TreeOpActivateUser,
 		Name:                "RootOrg0User1",
-		HttpExpectedStatus:  http.StatusOK,
+		HTTPExpectedStatus:  http.StatusOK,
 	},
 	{
 		CallerCredentialJwt: "RootOrg0User1",
 		Op:                  TreeOpListOrganizations,
-		HttpExpectedStatus:  http.StatusOK,
+		HTTPExpectedStatus:  http.StatusOK,
 	},
 }...)
 

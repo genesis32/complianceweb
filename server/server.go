@@ -20,7 +20,6 @@ import (
 type Server struct {
 	Config              *Configuration
 	Dao                 dao.DaoHandler
-	ResourceDao         dao.ResourceDaoHandler
 	SessionStore        sessions.Store
 	Authenticator       auth.Authenticator
 	router              *gin.Engine
@@ -89,9 +88,6 @@ func NewServer() *Server {
 	daoHandler.Open()
 	daoHandler.TrySelect()
 
-	resourceDaoHandler := dao.NewResourceDaoHandler(nil)
-	resourceDaoHandler.Open()
-
 	config := loadConfiguration(daoHandler)
 
 	// We aren't even using this anymore but we'll keep it around just incase
@@ -107,7 +103,7 @@ func NewServer() *Server {
 		authenticator = auth.NewAuth0Authenticator(callbackUrl, config.OIDCIssuer, config.Auth0ClientID, config.Auth0ClientSecret)
 	}
 
-	return &Server{Config: config, SessionStore: sessionStore, Dao: daoHandler, ResourceDao: resourceDaoHandler, Authenticator: authenticator}
+	return &Server{Config: config, SessionStore: sessionStore, Dao: daoHandler, Authenticator: authenticator}
 }
 
 // Shutdown the server
@@ -116,11 +112,11 @@ func (s *Server) Shutdown() error {
 	return err
 }
 
-func (s *Server) registerWebApp(fn webAppFunc) func(c *gin.Context) {
-	return s.registerWebAppA(true, fn)
+func (s *Server) registerAPI(fn webAppFunc) func(c *gin.Context) {
+	return s.registerAPIA(true, fn)
 }
 
-func (s *Server) registerWebAppA(authenticationRequired bool, fn webAppFunc) func(c *gin.Context) {
+func (s *Server) registerAPIA(authenticationRequired bool, fn webAppFunc) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		var userInfo *dao.OrganizationUser
 		if authenticationRequired {
@@ -157,72 +153,6 @@ func (s *Server) registerWebAppA(authenticationRequired bool, fn webAppFunc) fun
 		s.Dao.SealAuditRecord(auditRecord)
 	}
 }
-
-// func (s *Server) registerResourceApi(resourceAction resources.OrganizationResourceAction, fn resourceApiFunc) func(c *gin.Context) {
-// 	return func(c *gin.Context) {
-// 		organizationID, err := utils.StringToInt64(c.Param("organizationID"))
-// 		if err != nil {
-// 			c.String(http.StatusBadRequest, "expected numeric organization identifier")
-// 			return
-// 		}
-
-// 		subject, exists := c.Get("authenticated_user_profile")
-// 		if !exists {
-// 			c.String(http.StatusForbidden, "")
-// 			return
-// 		}
-
-// 		userInfo := s.Dao.LoadUserFromCredential(subject.(utils.OpenIDClaims)["sub"].(string), dao.UserActiveState)
-// 		if userInfo == nil {
-// 			c.String(http.StatusForbidden, "User does not exist")
-// 			return
-// 		}
-
-// 		hasPermission := s.Dao.DoesUserHavePermission(userInfo.ID, organizationID, resourceAction.PermissionName())
-
-// 		// @gmail.com as orgs
-// 		//		log.Printf("resource organizationid: %d required permission: %s user: %d", organizationID, resourceAction.PermissionName(), userInfo.ID)
-// 		if !hasPermission {
-// 			c.String(http.StatusUnauthorized, "not authorized")
-// 			return
-// 		}
-
-// 		var metadataBytes []byte
-
-// 		/* TODO: For now just pull the first one from the list (next return a metadata that is the intersction of everything in this list */
-// 		requiredMetadata := resourceAction.RequiredMetadata()
-// 		if len(requiredMetadata) > 0 {
-// 			_, metadataBytes = s.Dao.LoadMetadataInTree(organizationID, requiredMetadata[0])
-// 			if len(metadataBytes) == 0 {
-// 				c.String(http.StatusBadRequest, "no metadata present")
-// 				return
-// 			}
-// 		}
-// 		//		log.Printf("loaded orgid: %d metadata: %v", orgIDWithMetadata, metadata)
-
-// 		params := resources.OperationParameters{}
-// 		params["organizationID"] = organizationID
-// 		params["organizationMetadata"] = metadataBytes
-// 		params["resourceDao"] = s.ResourceDao
-// 		params["userInfo"] = userInfo
-
-// 		auditRecord := dao.NewAuditRecord(resourceAction.InternalKey(), resourceAction.Method())
-// 		auditRecord.OrganizationUserID = userInfo.ID
-// 		auditRecord.OrganizationID = organizationID
-
-// 		s.Dao.CreateAuditRecord(auditRecord)
-
-// 		operationResult := fn(c.Writer, c.Request, params)
-
-// 		// TODO: Fix this so it's required in the future
-// 		if operationResult != nil {
-// 			auditRecord.Metadata = newResourceAuditMetadata(operationResult.AuditMetadata)
-// 			auditRecord.HumanReadable = operationResult.AuditHumanReadable
-// 		}
-
-// 		s.Dao.SealAuditRecord(auditRecord)
-// 	}
-// }
 
 func validOIDCTokenRequired(s *Server) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -266,33 +196,33 @@ func (s *Server) Initialize() *gin.Engine {
 
 	system := s.router.Group("/system")
 	{
-		system.POST("/bootstrap", s.registerWebAppA(false, BootstrapApiPostHandler))
+		system.POST("/bootstrap", s.registerAPIA(false, BootstrapApiPostHandler))
 	}
 
 	webapp := s.router.Group("/webapp")
 	{
-		webapp.GET("/", s.registerWebAppA(false, IndexHandler))
-		webapp.GET("/invite/:inviteCode", s.registerWebAppA(false, InviteHandler))
-		webapp.GET("/login", s.registerWebAppA(false, LoginHandler))
-		webapp.GET("/callback", s.registerWebAppA(false, CallbackHandler))
+		webapp.GET("/", s.registerAPIA(false, IndexHandler))
+		webapp.GET("/invite/:inviteCode", s.registerAPIA(false, InviteHandler))
+		webapp.GET("/login", s.registerAPIA(false, LoginHandler))
+		webapp.GET("/callback", s.registerAPIA(false, CallbackHandler))
 	}
 
 	apiRoutes := s.router.Group("/api")
 	apiRoutes.Use(validOIDCTokenRequired(s))
 	{
 
-		apiRoutes.POST("/organizations", s.registerWebApp(OrganizationApiPostHandler))
-		apiRoutes.GET("/organizations", s.registerWebApp(OrganizationApiGetHandler))
-		apiRoutes.GET("/organizations/:organizationID", s.registerWebApp(OrganizationDetailsApiGetHandler))
+		apiRoutes.POST("/organizations", s.registerAPI(OrganizationApiPostHandler))
+		apiRoutes.GET("/organizations", s.registerAPI(OrganizationApiGetHandler))
+		apiRoutes.GET("/organizations/:organizationID", s.registerAPI(OrganizationDetailsApiGetHandler))
 
-		apiRoutes.PUT("/organizations/:organizationID/metadata", s.registerWebApp(OrganizationMetadataApiPutHandler))
-		apiRoutes.GET("/organizations/:organizationID/metadata", s.registerWebApp(OrganizationMetadataApiGetHandler))
+		apiRoutes.PUT("/organizations/:organizationID/metadata", s.registerAPI(OrganizationMetadataApiPutHandler))
+		apiRoutes.GET("/organizations/:organizationID/metadata", s.registerAPI(OrganizationMetadataApiGetHandler))
 
-		apiRoutes.POST("/users", s.registerWebApp(UserApiPostHandler))
-		apiRoutes.GET("/users/:userID", s.registerWebApp(UserApiGetHandler))
-		apiRoutes.GET("/me", s.registerWebApp(MeApiGetHandler))
-		apiRoutes.PUT("/users/:userID", s.registerWebApp(UserApiPutHandler))
-		apiRoutes.PUT("/users/:userID/roles", s.registerWebApp(UserRoleApiPostHandler))
+		apiRoutes.POST("/users", s.registerAPI(UserAPIPostHandler))
+		apiRoutes.GET("/users/:userID", s.registerAPI(UserApiGetHandler))
+		apiRoutes.GET("/me", s.registerAPI(MeApiGetHandler))
+		apiRoutes.PUT("/users/:userID", s.registerAPI(UserApiPutHandler))
+		apiRoutes.PUT("/users/:userID/roles", s.registerAPI(UserRoleApiPostHandler))
 	}
 
 	return s.router
