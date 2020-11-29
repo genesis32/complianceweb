@@ -1,17 +1,16 @@
-# Enterprise Portal 2
+# [Name TBD] Compliance Web
 
 ## What is this?
 
-It's a reimagining of Enterprise Portal 1. It separates resources from the organization 
-tree and enables them to be managed separately. Specifically it allows organization
-administrators and users authenticated through Auth0 to create organization trees, 
-inside these trees they can put users, resources, and metadata.
+The goal of this is to be a very lightweight deployable service used to make access control decisions against a hierarchy. You create users and add them to a hierarchy of organizations and their resources, users can then perform actions only against those resources in the organizations they have visibility over.
+
+I had some functionality in an earlier version that included a capability to add custom resources you could manage through the service. I will be adding that back.
+[See an example](https://github.com/genesis32/complianceweb/tree/aws_gcp_resources/resources)
 
 ## Dependencies
 * Postgresql 12 (needed for jsonb) w/ ltree extension
     * ltree extension: `create extension ltree` 
-* Google Cloud "Cloud Resource Manager" API is enabled for the project you want to manage.
-* A gcp service account w/ "Service Account Creator" and "Service Account Key Creator" role.
+* User login is only available through auth0 ATM
     
 ## Running Locally
 
@@ -37,15 +36,9 @@ Create a System Admin Account
 curl -X POST "http://localhost:3000/system/bootstrap" -H "Content-Type: application/json" --data '{"SystemAdminName":"sysadmin0"}'
 ```
     
-Visit [the login page](http://localhost:3000/webapp), click LogIn,
-and ensure you get back an auth0 jwt at the end of the flow. You can use this jwt
-to make API calls against the services.
+Visit [the login page](http://localhost:3000/webapp), click LogIn, and ensure you get back an auth0 jwt at the end of the flow. You can use this jwt to make API calls against the services.
 
-### Docker Notes
+## TODO 
 
-
-## Resource Types
-
-### GCP
-
-TODO 
+* Add back in an example resource type using the new model
+* Audit logging
