@@ -15,23 +15,21 @@ inside these trees they can put users, resources, and metadata.
     
 ## Running Locally
 
-Preload the database with data:
+make all:
 
-    psql < schema/00schema.sql
-    psql < schema/01seed.sql
-    psql < schema/02resource_schema.sql
+    make app database
 
-To download dependencies and build the executable:
+Run the database:
 
-    go get -u ./... && go build
+    docker run --rm --name enterpriseportal2-postgres -p 9876:5432 enterpriseportal2-db:latest
+    
+Run the app:
+
+    docker run --env ENV=test --env PGSQL_CONNECTION_STRING="port=5432 host=enterpriseportal2-postgres user=ep2 password=ep2 dbname=enterpriseportal2 sslmode=disable" --link enterpriseportal2-postgres -p 3000:8080 enterpriseportal2:latest
 
 To run the tests and make sure everything is sane:
 
-    cd integration_tests && GIN_MODE=release dotenv ../test.env go test  -v
-
-Start the app:
-
-    go build && dotenv test.env ./complianceweb
+    dotenv test.env go test -v ./...
 
 Create a System Admin Account
 
@@ -45,17 +43,6 @@ to make API calls against the services.
 
 ### Docker Notes
 
-make all:
-
-    make app && make database
-
-Run the database:
-
-    docker run --rm --name enterpriseportal2-postgres -p 9876:5432 hilobit:enterpriseportal2-db
-    
-Run the app:
-
-    docker run --link enterpriseportal2-postgres -p 3000:8080 hilobit:enterpriseportal2
 
 ## Resource Types
 

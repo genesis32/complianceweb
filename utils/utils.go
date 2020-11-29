@@ -77,7 +77,7 @@ func StringToInt64(v string) (int64, error) {
 func GenerateRandomBytes(len int) []byte {
 	arr := make([]byte, len)
 	if _, err := rand.Read(arr); err != nil {
-		log.Fatalf("generating random bytes: %w", err)
+		log.Fatalf("generating random bytes: %v", err)
 	}
 	return arr
 }
