@@ -35,9 +35,9 @@ INSERT INTO registered_resources VALUES (2, 'GCP Service Account Keys', 'gcp.ser
 INSERT INTO registered_resources VALUES (3, 'AWS IAM User', 'aws.iam.user', true);
 
 INSERT INTO settings (key, value) VALUES ('bootstrap.enabled', 'true');
-INSERT INTO settings (key, value) VALUES ('oidc.issuer.baseurl', 'https://***REMOVED***.auth0.com/');
-INSERT INTO settings (key, value) VALUES ('oidc.auth0.clientid', '***REMOVED***');
-INSERT INTO settings (key, value) VALUES ('oidc.auth0.clientsecret', '***REMOVED***');
+INSERT INTO settings (key, value) VALUES ('oidc.issuer.baseurl', 'https://[removed].auth0.com/');
+INSERT INTO settings (key, value) VALUES ('oidc.auth0.clientid', '[REMOVED]');
+INSERT INTO settings (key, value) VALUES ('oidc.auth0.clientsecret', '[REMOVED]');
 INSERT INTO settings (key, value) VALUES ('system.baseurl', 'http://localhost:3000');
 
 
